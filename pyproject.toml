@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anolis-workbench"
+version = "0.1.0"
+description = "Anolis commissioning workbench — system composer and handoff export tools."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0.0,<7.0.0",
+    "jsonschema>=4.22.0,<5.0.0",
+    "requests>=2.32.0,<3.0.0",
+]
+
+[project.scripts]
+anolis-workbench = "anolis_workbench_backend.server:main"
+anolis-package = "anolis_workbench_backend.package_cli:main"
+
+[tool.setuptools]
+packages = ["anolis_workbench_backend", "anolis_composer_backend"]
+
+[tool.setuptools.package-dir]
+anolis_workbench_backend = "workbench/backend"
+anolis_composer_backend = "system-composer/backend"
+
+[tool.setuptools.package-data]
+anolis_workbench_backend = ["schemas/*.json"]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = [
+    "workbench/tests",
+    "system-composer/tests",
+]
+addopts = "--strict-markers -ra"
+markers = [
+    "integration: integration tests that run against runtime/provider processes",
+    "slow: long-running tests not required in default CI lane",
+]
+norecursedirs = ["build", ".venv", "__pycache__", "*.egg-info"]
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = true

@@ -39,9 +39,11 @@ TEMPLATES_ROOT = _select_asset_path(
     _SOURCE_ASSET_ROOT / "templates",
     _PACKAGED_ASSET_ROOT / "templates",
 )
+# In dev: resolved to frontend/dist/ after `npm run build` in the frontend/ source tree.
+# In installed mode: resolved to the bundled anolis_workbench/frontend/dist/ package-data.
 FRONTEND_DIR = _select_asset_path(
-    _SOURCE_ASSET_ROOT / "frontend",
-    _PACKAGED_ASSET_ROOT / "frontend",
+    _SOURCE_ASSET_ROOT / "frontend" / "dist",
+    _PACKAGED_ASSET_ROOT / "frontend" / "dist",
 )
 CATALOG_PATH = _select_asset_path(
     _SOURCE_ASSET_ROOT / "catalog" / "providers.json",

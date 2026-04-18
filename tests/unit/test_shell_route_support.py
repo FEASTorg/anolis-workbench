@@ -185,10 +185,10 @@ def test_status_and_static_assets_are_served(workbench_server: dict[str, Any]) -
     assert isinstance(status_payload.get("composer"), dict)
     assert status_payload["composer"].get("port") == workbench_server["port"]
 
-    asset_code, asset_body, content_type = _http_text(base_url, "/js/app.js")
+    asset_code, asset_body, content_type = _http_text(base_url, "/index.html")
     assert asset_code == 200
-    assert "application/javascript" in content_type
-    assert "operate-workspace" in asset_body
+    assert "text/html" in content_type
+    assert "Anolis Workbench" in asset_body
 
 
 def test_unknown_static_path_returns_not_found(workbench_server: dict[str, Any]) -> None:

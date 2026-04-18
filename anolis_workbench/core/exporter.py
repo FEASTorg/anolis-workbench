@@ -201,10 +201,7 @@ def _resolve_behavior_path(raw: str, project_dir: pathlib.Path) -> pathlib.Path:
         (data_root / raw_path).resolve(),
     ]
     for candidate in candidates:
-        if candidate.is_file() and (
-            _is_within(candidate, project_dir)
-            or _is_within(candidate, data_root)
-        ):
+        if candidate.is_file() and (_is_within(candidate, project_dir) or _is_within(candidate, data_root)):
             return candidate
     raise ExportError(f"Behavior tree file not found for automation.behavior_tree='{raw}'")
 
@@ -250,9 +247,7 @@ def _build_machine_profile(
             display_name = raw.strip()
 
     machine_id = _machine_id_from_name(project_name)
-    providers = {
-        provider_id: {"config": f"providers/{provider_id}.yaml"} for provider_id in provider_ids
-    }
+    providers = {provider_id: {"config": f"providers/{provider_id}.yaml"} for provider_id in provider_ids}
     compatibility_providers = {
         provider_id: {"strategy": "local-build", "version": "unspecified"} for provider_id in provider_ids
     }
@@ -288,7 +283,7 @@ def _build_machine_profile(
 def _validate_machine_profile(profile: dict[str, Any]) -> None:
     global _MACHINE_PROFILE_SCHEMA_CACHE
     if _MACHINE_PROFILE_SCHEMA_CACHE is None:
-        schema_file = resources.files("anolis_workbench").joinpath("schemas", "machine-profile.schema.json")
+        schema_file = resources.files("anolis_workbench").joinpath("schemas").joinpath("machine-profile.schema.json")
         try:
             payload = json.loads(schema_file.read_text(encoding="utf-8"))
         except FileNotFoundError as exc:

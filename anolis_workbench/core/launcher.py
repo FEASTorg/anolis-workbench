@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from anolis_workbench.core import paths as paths_module
 
@@ -104,22 +105,25 @@ def _terminate_pid(pid: int, timeout_s: float = 5.0) -> None:
     if pid <= 0:
         return
 
+    _psutil: Any = None
     try:
-        import psutil
-    except ImportError:
-        psutil = None
+        import psutil as _psutil_import
 
-    if psutil is not None:
+        _psutil = _psutil_import
+    except ImportError:
+        pass
+
+    if _psutil is not None:
         try:
-            proc = psutil.Process(pid)
+            proc = _psutil.Process(pid)
             proc.terminate()
             try:
                 proc.wait(timeout=timeout_s)
-            except psutil.TimeoutExpired:
+            except _psutil.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=timeout_s)
             return
-        except psutil.Error:
+        except _psutil.Error:
             return
 
     if os.name == "nt":
@@ -151,7 +155,8 @@ def _terminate_pid(pid: int, timeout_s: float = 5.0) -> None:
         time.sleep(0.1)
     if _pid_exists(pid):
         try:
-            os.kill(pid, signal.SIGKILL)
+            _sigkill = getattr(signal, "SIGKILL", signal.SIGTERM)
+            os.kill(pid, _sigkill)
         except (ProcessLookupError, PermissionError, OSError):
             pass
 

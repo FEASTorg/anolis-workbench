@@ -14,9 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from anolis_workbench.core import paths as paths_module
 from anolis_workbench.core import projects as projects_module
-from anolis_workbench.server.routes import commission
-from anolis_workbench.server.routes import compose
-from anolis_workbench.server.routes import operate
+from anolis_workbench.server.routes import commission, compose, operate
 
 
 def _env_int(name: str, default: int) -> int:

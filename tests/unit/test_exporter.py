@@ -12,6 +12,7 @@ import yaml
 
 from anolis_workbench.core import exporter
 
+
 def test_build_package_is_deterministic_and_rewrites_runtime_paths(tmp_path: pathlib.Path) -> None:
     project_dir = _make_project(tmp_path, name="export-deterministic")
     out_a = tmp_path / "a.anpkg"
@@ -169,6 +170,8 @@ def test_missing_behavior_tree_file_raises_export_error(tmp_path: pathlib.Path) 
 
 def test_secret_leak_raises_export_error() -> None:
     with pytest.raises(exporter.ExportError, match="Secret-like token value leaked"):
-        exporter._assert_no_secret_leak({
-            "providers/test.yaml": b"connection:\n  token: 'leaked-secret'\n",
-        })
+        exporter._assert_no_secret_leak(
+            {
+                "providers/test.yaml": b"connection:\n  token: 'leaked-secret'\n",
+            }
+        )

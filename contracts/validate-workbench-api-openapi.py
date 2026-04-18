@@ -61,9 +61,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
     """PyYAML loader that rejects duplicate mapping keys."""
 
 
-def _construct_mapping_no_duplicates(
-    loader: _UniqueKeyLoader, node: yaml.Node, deep: bool = False
-) -> dict:
+def _construct_mapping_no_duplicates(loader: _UniqueKeyLoader, node: yaml.Node, deep: bool = False) -> dict:
     mapping: dict = {}
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=deep)
@@ -185,15 +183,11 @@ def _validate_required_operations(doc: dict, failures: list[Failure]) -> None:
             continue
         operation = path_item.get(method)
         if not isinstance(operation, dict):
-            failures.append(
-                Failure("operations", f"missing required operation: {method.upper()} {path}")
-            )
+            failures.append(Failure("operations", f"missing required operation: {method.upper()} {path}"))
             continue
         responses = operation.get("responses")
         if not isinstance(responses, dict) or not responses:
-            failures.append(
-                Failure("operations", f"operation missing responses: {method.upper()} {path}")
-            )
+            failures.append(Failure("operations", f"operation missing responses: {method.upper()} {path}"))
 
 
 def _validate_internal_refs(doc: dict, failures: list[Failure]) -> None:
@@ -224,9 +218,7 @@ def _validate_sse_contract(doc: dict, failures: list[Failure]) -> None:
         return
     content = ok.get("content")
     if not isinstance(content, dict) or "text/event-stream" not in content:
-        failures.append(
-            Failure("sse", "GET /api/projects/{name}/logs 200 must advertise text/event-stream")
-        )
+        failures.append(Failure("sse", "GET /api/projects/{name}/logs 200 must advertise text/event-stream"))
 
 
 def _validate_export_contract(doc: dict, failures: list[Failure]) -> None:
@@ -251,9 +243,7 @@ def _validate_export_contract(doc: dict, failures: list[Failure]) -> None:
         return
     content = ok.get("content")
     if not isinstance(content, dict) or "application/zip" not in content:
-        failures.append(
-            Failure("export", "POST /api/projects/{name}/export 200 must advertise application/zip")
-        )
+        failures.append(Failure("export", "POST /api/projects/{name}/export 200 must advertise application/zip"))
 
 
 def _validate_proxy_declaration(doc: dict, failures: list[Failure]) -> None:
@@ -266,15 +256,11 @@ def _validate_proxy_declaration(doc: dict, failures: list[Failure]) -> None:
         return
     for method in ("get", "post", "put", "delete"):
         if not isinstance(proxy.get(method), dict):
-            failures.append(
-                Failure("proxy", f"proxy path {PROXY_PATH} missing {method.upper()} operation")
-            )
+            failures.append(Failure("proxy", f"proxy path {PROXY_PATH} missing {method.upper()} operation"))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate Workbench API OpenAPI structural contract."
-    )
+    parser = argparse.ArgumentParser(description="Validate Workbench API OpenAPI structural contract.")
     parser.add_argument(
         "--repo-root",
         default=str(_repo_root_from_script()),

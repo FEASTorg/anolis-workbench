@@ -113,8 +113,7 @@ def _validate_checksums(package_root: pathlib.Path) -> None:
     expected = sorted(rel for rel in entries if rel != "meta/checksums.sha256")
     if discovered != expected:
         raise PackageValidationError(
-            "Checksum file entries do not match package contents: "
-            f"expected={expected}, discovered={discovered}"
+            f"Checksum file entries do not match package contents: expected={expected}, discovered={discovered}"
         )
 
     for rel_path in discovered:
@@ -169,7 +168,7 @@ def _iter_key_values(payload: Any, prefix: str = "$"):
 
 def _load_schema(rel_path: str) -> dict[str, Any]:
     schema_name = pathlib.PurePosixPath(rel_path).name
-    schema_file = resources.files("anolis_workbench").joinpath("schemas", schema_name)
+    schema_file = resources.files("anolis_workbench").joinpath("schemas").joinpath(schema_name)
     try:
         raw = schema_file.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
@@ -224,12 +223,14 @@ def _validate_manifest_refs(
         missing_in_manifest = sorted(runtime_provider_ids - manifest_provider_ids)
         missing_in_runtime = sorted(manifest_provider_ids - runtime_provider_ids)
         if missing_in_manifest:
+            missing_ids = missing_in_manifest
             raise PackageValidationError(
-                f"runtime_profiles.{profile_name}: provider IDs missing from manifest.providers: {missing_in_manifest}"
+                f"runtime_profiles.{profile_name}: provider IDs missing from manifest.providers: {missing_ids}"
             )
         if missing_in_runtime:
+            missing_ids = missing_in_runtime
             raise PackageValidationError(
-                f"runtime_profiles.{profile_name}: manifest.providers IDs missing from runtime.providers: {missing_in_runtime}"
+                f"runtime_profiles.{profile_name}: manifest.providers IDs missing from runtime.providers: {missing_ids}"
             )
 
         _validate_runtime_provider_args(package_root=package_root, runtime_payload=runtime_payload)

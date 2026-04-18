@@ -12,6 +12,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Generator
 from datetime import datetime, timezone
 from typing import Any
 
@@ -78,7 +79,7 @@ def _wait_for_ready(base_url: str, proc: subprocess.Popen[str], timeout_s: float
 
 
 @pytest.fixture
-def composer_server(tmp_path: pathlib.Path) -> dict[str, Any]:
+def composer_server(tmp_path: pathlib.Path) -> Generator[dict[str, Any], None, None]:
     port = _pick_free_port()
     systems_root = tmp_path / "systems"
     systems_root.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,7 @@
 
 import json
 import pathlib
+import sys
 
 from anolis_workbench.core import validator
 

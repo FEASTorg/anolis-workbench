@@ -12,6 +12,7 @@ import sys
 import tempfile
 
 import yaml  # noqa: E402 (PyYAML must be available for the renderer already uses it)
+
 from anolis_workbench.core import renderer
 
 TEMPLATES_DIR = pathlib.Path(__file__).parent.parent / "anolis_workbench" / "templates"

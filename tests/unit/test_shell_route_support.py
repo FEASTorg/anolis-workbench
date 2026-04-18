@@ -13,8 +13,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from typing import Any
+from collections.abc import Generator
 from io import BytesIO
+from typing import Any
 
 import pytest
 
@@ -100,9 +101,7 @@ def _wait_for_ready(base_url: str, proc: subprocess.Popen[str], timeout_s: float
     while time.time() < deadline:
         if proc.poll() is not None:
             stderr = proc.stderr.read() if proc.stderr is not None else ""
-            raise AssertionError(
-                f"Workbench exited before readiness check (code={proc.returncode}):\n{stderr}"
-            )
+            raise AssertionError(f"Workbench exited before readiness check (code={proc.returncode}):\n{stderr}")
 
         try:
             status, _ = _http_json(base_url, "/api/status", timeout_s=0.5)
@@ -117,7 +116,7 @@ def _wait_for_ready(base_url: str, proc: subprocess.Popen[str], timeout_s: float
 
 
 @pytest.fixture
-def workbench_server(tmp_path: pathlib.Path) -> dict[str, Any]:
+def workbench_server(tmp_path: pathlib.Path) -> Generator[dict[str, Any], None, None]:
     port = _pick_free_port()
     systems_root = tmp_path / "systems"
     env = os.environ.copy()
@@ -353,7 +352,9 @@ def test_runtime_proxy_returns_502_when_runtime_unreachable(workbench_server: di
         _http_json(base_url, f"/api/projects/{urllib.parse.quote(project_name)}", method="DELETE")
 
 
-def test_export_endpoint_and_cli_outputs_are_bit_identical(workbench_server: dict[str, Any], tmp_path: pathlib.Path) -> None:
+def test_export_endpoint_and_cli_outputs_are_bit_identical(
+    workbench_server: dict[str, Any], tmp_path: pathlib.Path
+) -> None:
     base_url = workbench_server["base_url"]
     project_name = f"wb-export-{int(time.time() * 1000)}"
 

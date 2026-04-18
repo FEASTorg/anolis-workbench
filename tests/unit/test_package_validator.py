@@ -10,8 +10,7 @@ import zipfile
 import pytest
 import yaml
 
-from anolis_workbench.core import exporter
-from anolis_workbench.core import package_validator
+from anolis_workbench.core import exporter, package_validator
 
 
 def test_validate_package_accepts_valid_archive(tmp_path: pathlib.Path) -> None:

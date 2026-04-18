@@ -15,6 +15,6 @@ Repository-level contract snapshots and validators.
 
 ## Handoff Package
 
-1. Validator: `python3 contracts/validate-handoff-packages.py <package.anpkg>`
+1. Validator: `anolis-validate <package.anpkg>` (or `python3 contracts/validate-handoff-packages.py <package.anpkg>`)
 2. Baseline: `../docs/contracts/handoff-package-baseline.md`
 3. v1 format spec: `../docs/contracts/handoff-package-v1.md`

@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
 
 [project]
 name = "anolis-workbench"
@@ -15,26 +15,37 @@ dependencies = [
     "requests>=2.32.0,<3.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.15.0,<1.0.0",
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-timeout>=2.0.0,<3.0.0",
+    "psutil>=5.9.0,<7.0.0",
+    "mypy>=1.8.0,<2.0.0",
+    "types-requests>=2.31.0",
+    "types-psutil>=5.9.0",
+    "types-PyYAML>=6.0.0",
+]
+
 [project.scripts]
 anolis-workbench = "anolis_workbench.cli.main:main"
 anolis-package = "anolis_workbench.cli.package_cli:main"
+anolis-validate = "anolis_workbench.cli.validate_cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["anolis_workbench*"]
-
-[tool.setuptools.package-data]
-anolis_workbench = [
-    "catalog/*.json",
-    "schema/*.json",
-    "schemas/*.json",
-    "templates/*/system.json",
-    "frontend/*.html",
-    "frontend/css/*.css",
-    "frontend/js/*.js",
-    "frontend/js/composer/*.js",
-    "frontend/js/composer/forms/*.js",
-    "frontend/js/operate/*.js",
+[tool.hatch.build.targets.wheel]
+packages = ["anolis_workbench"]
+include = [
+    "anolis_workbench/catalog/*.json",
+    "anolis_workbench/schema/*.json",
+    "anolis_workbench/schemas/*.json",
+    "anolis_workbench/templates/*/system.json",
+    "anolis_workbench/frontend/*.html",
+    "anolis_workbench/frontend/css/*.css",
+    "anolis_workbench/frontend/js/*.js",
+    "anolis_workbench/frontend/js/composer/*.js",
+    "anolis_workbench/frontend/js/composer/forms/*.js",
+    "anolis_workbench/frontend/js/operate/*.js",
+    "anolis_workbench/dist/**",
 ]
 
 # ---------------------------------------------------------------------------

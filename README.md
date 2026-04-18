@@ -11,8 +11,9 @@ Phase 13 structure:
 ## Install
 
 ```sh
-python -m pip install -r requirements.txt
-python -m pip install -e .
+python -m pip install -e .[dev]
+# Recommended (when uv is installed):
+# uv pip install -e .[dev]
 ```
 
 ## Run
@@ -42,6 +43,8 @@ anolis-package <project-name> [output.anpkg]
 Validate handoff package:
 
 ```sh
+anolis-validate <package.anpkg>
+# or
 python contracts/validate-handoff-packages.py <package.anpkg>
 ```
 
@@ -58,3 +61,4 @@ python contracts/validate-handoff-packages.py <package.anpkg>
 
 1. Commissioning handoff runbook: `docs/commissioning-handoff-runbook.md`
 2. Handoff package v1 format: `docs/contracts/handoff-package-v1.md`
+3. PyPI/OIDC release handoff: `docs/release-pypi-handoff.md`

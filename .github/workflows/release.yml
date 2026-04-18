@@ -1,0 +1,213 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (e.g. 0.1.0)
+        required: true
+        type: string
+      prerelease:
+        description: Mark release as prerelease
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate release request
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate requested version
+        id: validate
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid semver version: $VERSION"
+            exit 1
+          fi
+
+          PYPROJECT_VERSION=$(python - <<'PY'
+import pathlib, tomllib
+pyproject = pathlib.Path("pyproject.toml")
+data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+print(data["project"]["version"])
+PY
+)
+
+          if [[ "$VERSION" != "$PYPROJECT_VERSION" ]]; then
+            echo "Version mismatch: input=$VERSION pyproject=$PYPROJECT_VERSION"
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $TAG"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release request validated for $TAG"
+
+  ci:
+    name: CI gate
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build sdist and wheel
+    needs: [validate, ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e .[dev]
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Verify dist artifacts
+        run: |
+          set -euo pipefail
+          test -d dist
+          ls -lh dist/
+          ls dist/*.whl dist/*.tar.gz >/dev/null
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/anolis-workbench/
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+  smoke-test:
+    name: Smoke test from clean install
+    needs: [validate, publish-pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install from PyPI and run smoke checks
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --quiet "anolis-workbench==${{ inputs.version }}"
+          /tmp/smoke-venv/bin/anolis-workbench --help
+          /tmp/smoke-venv/bin/anolis-package --help
+          /tmp/smoke-venv/bin/anolis-validate --help
+          echo "Smoke test passed for anolis-workbench==${{ inputs.version }}"
+
+  create-release:
+    name: Tag and create GitHub Release
+    needs: [validate, smoke-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist
+
+      - name: Create and push release tag
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.validate.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release ${{ inputs.version }}"
+          git push origin "$TAG"
+
+      - name: Generate release notes
+        id: notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ inputs.version }}';
+            const tag = '${{ needs.validate.outputs.tag }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            return [
+              `Release ${version}`,
+              ``,
+              `Install: \`pip install anolis-workbench==${version}\``,
+              ``,
+              `Assets include wheel and source distribution.`,
+              ``,
+              `Tag: ${tag}`,
+              `Repository: ${owner}/${repo}`,
+            ].join('\n');
+          result-encoding: string
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: Release ${{ inputs.version }}
+          body: ${{ steps.notes.outputs.result }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

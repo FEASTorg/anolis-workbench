@@ -149,11 +149,34 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install from PyPI and run smoke checks
+      - name: Wait for PyPI propagation and install
         run: |
           set -euo pipefail
+          VERSION="${{ inputs.version }}"
           python -m venv /tmp/smoke-venv
-          /tmp/smoke-venv/bin/pip install --quiet "anolis-workbench==${{ inputs.version }}"
+
+          # PyPI CDN can take up to ~60s to fully propagate a new release.
+          # Retry pip install with exponential backoff: 10s, 20s, 40s, 60s, 60s (max 5 attempts).
+          MAX_ATTEMPTS=5
+          DELAY=10
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $attempt/$MAX_ATTEMPTS: installing anolis-workbench==$VERSION ..."
+            if /tmp/smoke-venv/bin/pip install --quiet "anolis-workbench==$VERSION"; then
+              echo "Install succeeded on attempt $attempt."
+              break
+            fi
+            if [[ $attempt -eq $MAX_ATTEMPTS ]]; then
+              echo "Package not available on PyPI after $MAX_ATTEMPTS attempts."
+              exit 1
+            fi
+            echo "Not yet available — waiting ${DELAY}s before retry..."
+            sleep $DELAY
+            DELAY=$(( DELAY * 2 > 60 ? 60 : DELAY * 2 ))
+          done
+
+      - name: Run smoke checks
+        run: |
+          set -euo pipefail
           /tmp/smoke-venv/bin/anolis-workbench --help
           /tmp/smoke-venv/bin/anolis-package --help
           /tmp/smoke-venv/bin/anolis-validate --help

@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check"
+    "check": "svelte-check",
+    "bundle:size": "node scripts/report-bundle-size.mjs",
+    "smoke": "playwright test --config=playwright.config.ts --reporter=line",
+    "smoke:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

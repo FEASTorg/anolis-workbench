@@ -48,6 +48,18 @@ jobs:
         run: npm run build
         working-directory: frontend
 
+      - name: Report bundle size
+        run: npm run bundle:size
+        working-directory: frontend
+
+      - name: Install Playwright browser
+        run: npm run smoke:install
+        working-directory: frontend
+
+      - name: Browser smoke test
+        run: npm run smoke
+        working-directory: frontend
+
   lint:
     name: Lint (ruff)
     runs-on: ubuntu-24.04

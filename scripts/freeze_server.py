@@ -17,7 +17,6 @@ import subprocess
 import sys
 from typing import Sequence
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_ENTRYPOINT = REPO_ROOT / "anolis_workbench" / "cli" / "main.py"
 DEFAULT_FRONTEND_INDEX = REPO_ROOT / "anolis_workbench" / "frontend" / "dist" / "index.html"

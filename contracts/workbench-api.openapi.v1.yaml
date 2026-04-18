@@ -1,0 +1,752 @@
+openapi: 3.0.3
+info:
+  title: Anolis Workbench API
+  version: "1.0.0"
+  description: |
+    Full commissioning API for the Anolis Workbench — Compose, Commission,
+    and Operate track declarations. Supersedes the narrower
+    composer-control contract for the unified workbench server.
+
+    Compose and Commission operations are described fully with request/response
+    schemas. The Operate track (/v0/*) is a proxy pass-through to the
+    anolis-runtime HTTP API; its operations are described in
+    contracts/runtime-http.openapi.v0.yaml, not here.
+
+    Default server: http://localhost:3010
+
+    v1 compatibility note: the /api/status response preserves the legacy
+    composer/workbench key structure from the current server implementations.
+    Key reshaping is deferred to a future compatibility-migration phase.
+
+paths:
+
+  # ── Compose track ──────────────────────────────────────────────────────────
+
+  /api/projects:
+    get:
+      summary: List projects
+      description: >-
+        Returns project summaries (name + meta only) for all projects in the
+        data directory, sorted by name. Empty array when no projects exist.
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSummary"
+    post:
+      summary: Create project from template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, template]
+              properties:
+                name:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]{1,64}$'
+                  description: New project name
+                template:
+                  type: string
+                  description: Template ID to create from
+              additionalProperties: true
+      responses:
+        "201":
+          description: Project created — returns full system document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemDocument"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /api/projects/{name}:
+    get:
+      summary: Get project document
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      responses:
+        "200":
+          description: Full system document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemDocument"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+    put:
+      summary: Save project document
+      description: >-
+        Validates schema and semantics. Re-renders derived YAML files to disk
+        on success.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemDocument"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      summary: Delete project
+      description: >-
+        Deletes the project directory and all its files. Blocked if the
+        project is currently running — stop the runtime first.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+
+  /api/projects/{name}/rename:
+    post:
+      summary: Rename project
+      description: >-
+        Renames the project directory. Blocked if the project is currently
+        running.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_name]
+              properties:
+                new_name:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]{1,64}$'
+                  description: New project name
+              additionalProperties: true
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+
+  /api/projects/{name}/duplicate:
+    post:
+      summary: Duplicate project
+      description: >-
+        Copies the project to a new name. Does not copy running.json or logs/.
+        Re-renders derived YAML. Updates meta.name and meta.created in the
+        copy. Returns the full system document of the new project (201).
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_name]
+              properties:
+                new_name:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]{1,64}$'
+                  description: Name for the duplicated project
+              additionalProperties: true
+      responses:
+        "201":
+          description: Duplicate project created — returns full system document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemDocument"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /api/templates:
+    get:
+      summary: List templates
+      description: >-
+        Returns available project templates. Empty array if no templates
+        directory exists.
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateSummary"
+
+  /api/catalog:
+    get:
+      summary: Get provider catalog
+      description: >-
+        Returns the static provider catalog document (providers.json), passed
+        through verbatim. Content structure is provider-catalog-specific and
+        not schema-validated in this contract (additionalProperties: true).
+      responses:
+        "200":
+          description: Provider catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  # ── Commission track ───────────────────────────────────────────────────────
+
+  /api/status:
+    get:
+      summary: Get launcher status
+      description: >-
+        Returns global launcher status. Always 200 — not running is a valid
+        state, not an error.
+      responses:
+        "200":
+          description: Launcher status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+  /api/projects/{name}/preflight:
+    post:
+      summary: Run preflight checks
+      description: >-
+        Runs preflight checks for the project. Re-renders YAML to disk before
+        any binary checks run. Returns results for all checks including skipped
+        ones.
+
+        ok at top level is true only when all checks have ok != false. A
+        skipped check (ok: null) does not make the top-level ok false.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Send {} when no request options are needed.
+      responses:
+        "200":
+          description: Preflight results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreflightResponse"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/projects/{name}/launch:
+    post:
+      summary: Launch runtime
+      description: >-
+        Launches the anolis-runtime subprocess for the project. Fails with 409
+        if a runtime is already running.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Send {} when no request options are needed.
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /api/projects/{name}/stop:
+    post:
+      summary: Stop runtime
+      description: >-
+        Stops the running runtime. The project name is a guard (must exist),
+        not a selector — only one runtime process is active at a time.
+        Idempotent: returns 200 even if nothing was running.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Send {} when no request options are needed.
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  /api/projects/{name}/restart:
+    post:
+      summary: Restart runtime
+      description: >-
+        Stops then relaunches the runtime for the project. Fails with 409 if
+        the project is not currently running.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Send {} when no request options are needed.
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok200"
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /api/projects/{name}/export:
+    post:
+      summary: Export commissioning package
+      description: >-
+        Builds and returns a commissioning handoff package (.anpkg) for the
+        project. Synchronous — package is built in a temporary directory and
+        returned as a binary stream.
+
+        The response body is the raw .anpkg bytes (a ZIP archive). The
+        Content-Disposition header contains the suggested filename.
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Send {} when no request options are needed.
+      responses:
+        "200":
+          description: Commissioning package archive
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'attachment; filename="{name}.anpkg"'
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /api/projects/{name}/logs:
+    get:
+      summary: Stream project logs (SSE)
+      description: >-
+        Streams project log output via Server-Sent Events. The connection stays
+        open until the runtime process exits or the client disconnects. Includes
+        periodic keepalive comment frames.
+
+        The stream replays buffered lines on connect. No explicit resume token
+        contract is defined in v1.
+
+        SSE frame formats: "data: <log line>" and ": keepalive"
+      parameters:
+        - $ref: "#/components/parameters/ProjectName"
+      responses:
+        "200":
+          description: Log event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/Error400"
+        "404":
+          $ref: "#/components/responses/Error404"
+
+  # ── Operate track — proxy declaration only ────────────────────────────────
+
+  /v0/{path}:
+    get:
+      summary: Proxy to runtime (GET)
+      description: >-
+        Pass-through proxy to the anolis-runtime HTTP API. This path template
+        represents all /v0/** subpaths. Operations are described in
+        contracts/runtime-http.openapi.v0.yaml, not here.
+
+        Precondition: a runtime process must be running with an active project.
+        The proxy target is topology.runtime.http_bind:topology.runtime.http_port
+        from the active project system.json.
+
+        503 — runtime is not running or no active project.
+        502 — proxy connection to runtime failed.
+        500 — running project metadata is invalid (e.g. missing runtime port).
+      parameters:
+        - $ref: "#/components/parameters/ProxyPath"
+      responses:
+        "200":
+          description: Proxied response from runtime (any status code possible)
+        "503":
+          $ref: "#/components/responses/Error503"
+        "502":
+          $ref: "#/components/responses/Error502"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      summary: Proxy to runtime (POST)
+      description: >-
+        Pass-through proxy to the anolis-runtime HTTP API. This path template
+        represents all /v0/** subpaths. See GET /v0/{path} for proxy semantics.
+      parameters:
+        - $ref: "#/components/parameters/ProxyPath"
+      responses:
+        "200":
+          description: Proxied response from runtime (any status code possible)
+        "503":
+          $ref: "#/components/responses/Error503"
+        "502":
+          $ref: "#/components/responses/Error502"
+        "500":
+          $ref: "#/components/responses/Error500"
+    put:
+      summary: Proxy to runtime (PUT)
+      description: >-
+        Pass-through proxy to the anolis-runtime HTTP API. This path template
+        represents all /v0/** subpaths. See GET /v0/{path} for proxy semantics.
+      parameters:
+        - $ref: "#/components/parameters/ProxyPath"
+      responses:
+        "200":
+          description: Proxied response from runtime (any status code possible)
+        "503":
+          $ref: "#/components/responses/Error503"
+        "502":
+          $ref: "#/components/responses/Error502"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      summary: Proxy to runtime (DELETE)
+      description: >-
+        Pass-through proxy to the anolis-runtime HTTP API. This path template
+        represents all /v0/** subpaths. See GET /v0/{path} for proxy semantics.
+      parameters:
+        - $ref: "#/components/parameters/ProxyPath"
+      responses:
+        "200":
+          description: Proxied response from runtime (any status code possible)
+        "503":
+          $ref: "#/components/responses/Error503"
+        "502":
+          $ref: "#/components/responses/Error502"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+components:
+
+  parameters:
+    ProjectName:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9_-]{1,64}$'
+      description: Workbench project name
+    ProxyPath:
+      name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: >-
+        Runtime API subpath (everything after /v0/). Represents a wildcard
+        catch-all — all /v0/** subpaths are handled by the proxy handler.
+
+  responses:
+    Ok200:
+      description: Operation succeeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OkResponse"
+    Error400:
+      description: Invalid request or validation failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error404:
+      description: Project or resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error409:
+      description: Conflict with current runtime or project state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error500:
+      description: Unexpected backend error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error502:
+      description: Proxy connection to runtime failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Error503:
+      description: Runtime is not running or no active project
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+      additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: >-
+            Machine-readable error code. Values: validation_failed,
+            template_validation_failed, duplicate_validation_failed.
+        errors:
+          type: array
+          description: Structured validation error list (present on validation failures)
+          items:
+            $ref: "#/components/schemas/ValidationErrorItem"
+      additionalProperties: true
+
+    ValidationErrorItem:
+      type: object
+      required: [source, code, path, message]
+      properties:
+        source:
+          type: string
+          description: "Validation stage. Values: schema, semantic"
+        code:
+          type: string
+          description: >-
+            Error code. Values: schema.type, schema.validation,
+            semantic.validation
+        path:
+          type: string
+          description: JSON pointer to the offending field (e.g. $.topology.runtime)
+        message:
+          type: string
+          description: Human-readable description of the violation
+      additionalProperties: true
+
+    ProjectSummary:
+      type: object
+      required: [name, meta]
+      properties:
+        name:
+          type: string
+          description: Project name (directory name)
+        meta:
+          type: object
+          description: Project metadata from system.json (name, created, template)
+          additionalProperties: true
+      additionalProperties: true
+
+    SystemDocument:
+      type: object
+      required: [meta, topology, paths]
+      description: >-
+        Full project document (system.json). Schema is validated server-side
+        against the bundled system.schema.json. The properties listed here are
+        the required top-level keys; all sub-structures are additionalProperties
+        to avoid contract drift as the schema evolves.
+      properties:
+        meta:
+          type: object
+          required: [name, created, template]
+          properties:
+            name:
+              type: string
+            created:
+              type: string
+              format: date-time
+            template:
+              type: string
+          additionalProperties: true
+        topology:
+          type: object
+          additionalProperties: true
+        paths:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    TemplateSummary:
+      type: object
+      required: [id, meta]
+      properties:
+        id:
+          type: string
+          description: Template identifier used in POST /api/projects
+        meta:
+          type: object
+          description: Template metadata
+          additionalProperties: true
+      additionalProperties: true
+
+    StatusResponse:
+      type: object
+      required: [version, active_project, running, pid, composer, workbench]
+      description: >-
+        Global launcher status. v1 shape preserves legacy composer/workbench
+        keys for compatibility. Key reshaping is deferred to a future phase.
+      properties:
+        version:
+          type: integer
+          description: Protocol version (always 1 in v1)
+        active_project:
+          type: string
+          nullable: true
+          description: Name of the currently active project, or null
+        running:
+          type: boolean
+          description: Whether a runtime process is currently running
+        pid:
+          type: integer
+          nullable: true
+          description: PID of the running runtime process, or null
+        composer:
+          type: object
+          required: [host, port, operator_ui_base]
+          description: Server connection info (legacy key name preserved in v1)
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+            operator_ui_base:
+              type: string
+          additionalProperties: true
+        workbench:
+          type: object
+          required: [version]
+          description: Workbench sub-object (version always 1 in v1)
+          properties:
+            version:
+              type: integer
+          additionalProperties: true
+      additionalProperties: true
+
+    PreflightCheckItem:
+      type: object
+      required: [name, ok]
+      description: >-
+        A single preflight check result. ok is true (passed), false (failed),
+        or null (skipped). When ok is false, error is a non-null string and
+        hint may be non-null. When ok is null, note is a non-null string.
+      properties:
+        name:
+          type: string
+          description: Human-readable check name
+        ok:
+          type: boolean
+          nullable: true
+          description: "Pass/fail/skip result: true, false, or null (skipped)"
+        error:
+          type: string
+          nullable: true
+          description: Error message when ok is false
+        hint:
+          type: string
+          nullable: true
+          description: Actionable hint when ok is false
+        note:
+          type: string
+          nullable: true
+          description: Informational note when ok is null (skipped)
+      additionalProperties: true
+
+    PreflightResponse:
+      type: object
+      required: [ok, checks]
+      description: >-
+        Preflight check results. ok is true only when all checks have ok !=
+        false. A skipped check (ok: null) does not make the top-level ok false.
+      properties:
+        ok:
+          type: boolean
+          description: Overall pass/fail (true only when no check has ok == false)
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreflightCheckItem"
+      additionalProperties: true

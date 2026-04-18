@@ -90,6 +90,9 @@ jobs:
       - name: Validate composer-control OpenAPI
         run: python contracts/validate-composer-control-openapi.py
 
+      - name: Validate workbench-api OpenAPI
+        run: python contracts/validate-workbench-api-openapi.py
+
   contract-drift:
     name: Contract drift check
     runs-on: ubuntu-24.04

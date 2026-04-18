@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anolis-workbench"
-version = "0.1.0"
+version = "0.1.1"
 description = "Anolis commissioning workbench — system composer and handoff export tools."
 readme = "README.md"
 license = { text = "MIT" }
@@ -31,6 +31,12 @@ dev = [
 anolis-workbench = "anolis_workbench.cli.main:main"
 anolis-package = "anolis_workbench.cli.package_cli:main"
 anolis-validate = "anolis_workbench.cli.validate_cli:main"
+
+[tool.hatch.build]
+# Generated build output — gitignored but must be bundled in the distribution.
+artifacts = [
+    "anolis_workbench/frontend/dist/**",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["anolis_workbench"]

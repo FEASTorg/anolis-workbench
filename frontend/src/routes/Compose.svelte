@@ -1,5 +1,6 @@
 <script>
-  // TODO Phase 14: import and render RuntimeForm and ProviderList components.
+  import RuntimeForm from '../lib/RuntimeForm.svelte';
+  import ProviderList from '../lib/ProviderList.svelte';
 
   let { projectName, system, catalog, runtimeStatus, onDirty, onSaved, onSystemChanged } =
     $props();
@@ -13,6 +14,8 @@
   let saving = $state(false);
   let saveError = $state('');
   let saveErrors = $state([]);
+
+  function markDirty() { onDirty(); }
 
   async function handleSave() {
     if (!projectName || !system) return;
@@ -67,8 +70,12 @@
   {/if}
 
   <div id="compose-form-area">
-    <!-- TODO Phase 14: Replace with RuntimeForm and ProviderList Svelte components -->
-    <p class="placeholder">Compose forms — implementation in progress.</p>
+    {#if system}
+      <RuntimeForm {system} onChanged={markDirty} />
+      <ProviderList {system} {catalog} onChanged={markDirty} />
+    {:else}
+      <p class="placeholder">Loading…</p>
+    {/if}
   </div>
 
   <div class="compose-actions">

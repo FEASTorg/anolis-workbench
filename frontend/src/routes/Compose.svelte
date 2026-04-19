@@ -78,7 +78,7 @@
       <p>{saveError}</p>
       {#if saveErrors.length > 0}
         <ul>
-          {#each saveErrors as e}
+          {#each saveErrors as e, i (i)}
             <li><code>{e.path ?? "$"}</code>: {e.message ?? "Validation error"}</li>
           {/each}
         </ul>

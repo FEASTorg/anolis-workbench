@@ -406,7 +406,7 @@
 
       {#if preflightResults?.checks?.length}
         <div class="preflight-results">
-          {#each preflightResults.checks as c}
+          {#each preflightResults.checks as c (c.name)}
             {@const cls = c.ok === true ? "check-ok" : c.ok === false ? "check-fail" : "check-skip"}
             {@const icon = c.ok === true ? "✓" : c.ok === false ? "✗" : "–"}
             <div class="check-item {cls}">
@@ -481,7 +481,7 @@
         >
       </div>
       <div class="log-content" bind:this={logEl} onscroll={handleLogScroll}>
-        {#each logLines as line}
+        {#each logLines as line, i (i)}
           <div class="log-line">{line}</div>
         {/each}
       </div>
@@ -523,7 +523,7 @@
       {#if commissionProviderHealth.length === 0}
         <li class="placeholder">No provider health data.</li>
       {:else}
-        {#each commissionProviderHealth as prov}
+        {#each commissionProviderHealth as prov, i (i)}
           {@const state = typeof prov?.state === "string" ? prov.state : "UNKNOWN"}
           {@const lifecycle =
             typeof prov?.lifecycle_state === "string" ? prov.lifecycle_state : "--"}

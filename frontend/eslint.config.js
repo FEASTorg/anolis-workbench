@@ -7,7 +7,14 @@ import globals from "globals";
 export default [
   // ── Ignore generated / vendored output ──────────────────────────────────
   {
-    ignores: ["dist/**", "coverage/**", "node_modules/**", "playwright-report/**", "test-results/**"],
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+      "src/**/*.d.ts",
+    ],
   },
 
   // ── TypeScript source files ──────────────────────────────────────────────

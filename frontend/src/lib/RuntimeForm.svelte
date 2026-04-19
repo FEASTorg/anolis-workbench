@@ -100,7 +100,7 @@
         checked={rt.cors_allow_credentials ?? false}
         onchange={(e: any) => setRt("cors_allow_credentials", e.target.checked)}
       />
-      {" "}CORS allow credentials
+      CORS allow credentials
     </label>
   </div>
 
@@ -170,7 +170,7 @@
           onChanged();
         }}
       />
-      {" "}Telemetry enabled
+      Telemetry enabled
     </label>
   </div>
 
@@ -251,7 +251,7 @@
         checked={rt.automation_enabled ?? false}
         onchange={(e: any) => setRt("automation_enabled", e.target.checked)}
       />
-      {" "}Automation enabled
+      Automation enabled
     </label>
   </div>
 

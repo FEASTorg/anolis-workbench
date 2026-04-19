@@ -226,7 +226,7 @@
             {#if !isSupported}
               <option value={prov.kind}>Unsupported ({prov.kind})</option>
             {/if}
-            {#each SUPPORTED_KINDS as kind}
+            {#each SUPPORTED_KINDS as kind (kind)}
               <option value={kind}>{kindMap[kind]?.display_name ?? kind}</option>
             {/each}
           </select>
@@ -246,7 +246,7 @@
         <!-- Timeouts -->
         <div class="provider-timing">
           <span class="field-group-label">Timeouts</span>
-          {#each [["timeout_ms", "timeout"], ["hello_timeout_ms", "hello"], ["ready_timeout_ms", "ready"]] as [key, display]}
+          {#each [["timeout_ms", "timeout"], ["hello_timeout_ms", "hello"], ["ready_timeout_ms", "ready"]] as [key, display] (key)}
             <label class="inline-label">
               <input
                 type="number"
@@ -261,7 +261,7 @@
                   }
                 }}
               />
-              {" "}ms ({display})
+              ms ({display})
             </label>
           {/each}
         </div>
@@ -285,7 +285,7 @@
                 onChanged();
               }}
             />
-            {" "}Enable restart policy
+            Enable restart policy
           </label>
 
           {#if prov.restart_policy?.enabled}
@@ -303,7 +303,7 @@
                     }
                   }}
                 />
-                {" "}max attempts
+                max attempts
               </label>
               <label class="inline-label">
                 <input
@@ -317,7 +317,7 @@
                     onChanged();
                   }}
                 />
-                {" "}backoff ms
+                backoff ms
               </label>
               <label class="inline-label">
                 <input
@@ -332,7 +332,7 @@
                     }
                   }}
                 />
-                {" "}timeout (ms)
+                timeout (ms)
               </label>
               <label class="inline-label">
                 <input
@@ -350,7 +350,7 @@
                     onChanged();
                   }}
                 />
-                {" "}success reset (ms)
+                success reset (ms)
               </label>
             </div>
           {/if}
@@ -460,7 +460,7 @@
               <div class="device-list-section">
                 <h4>Devices</h4>
                 <div class="device-list">
-                  {#each cfg.devices ?? [] as dev, di}
+                  {#each cfg.devices ?? [] as dev, di (di)}
                     <div class="device-row">
                       <input
                         type="text"
@@ -497,7 +497,7 @@
                           onChanged();
                         }}
                       >
-                        {#each SIM_DEVICE_TYPES as dt}
+                        {#each SIM_DEVICE_TYPES as dt (dt.type)}
                           <option value={dt.type}>{dt.display}</option>
                         {/each}
                       </select>
@@ -509,7 +509,7 @@
                           onChanged();
                         }}>✕</button
                       >
-                      {#each SIM_DEVICE_TYPES.find((d) => d.type === dev.type)?.fields ?? [] as f}
+                      {#each SIM_DEVICE_TYPES.find((d) => d.type === dev.type)?.fields ?? [] as f (f.key)}
                         <label class="inline-label">
                           {f.label}:
                           <input
@@ -566,7 +566,7 @@
                       onChanged();
                     }}
                   />
-                  {" "}Require live session
+                  Require live session
                 </label>
               </div>
               <div class="form-group">
@@ -620,7 +620,7 @@
               <div class="device-list-section">
                 <h4>Devices</h4>
                 <div class="device-list">
-                  {#each cfg.devices ?? [] as dev, di}
+                  {#each cfg.devices ?? [] as dev, di (di)}
                     {@const addrId = `bread-addr-${id}-${di}`}
                     <div class="device-row">
                       <input
@@ -651,7 +651,7 @@
                           onChanged();
                         }}
                       >
-                        {#each BREAD_DEVICE_TYPES as dt}
+                        {#each BREAD_DEVICE_TYPES as dt (dt.type)}
                           <option value={dt.type}>{dt.display}</option>
                         {/each}
                       </select>
@@ -763,7 +763,7 @@
               <div class="device-list-section">
                 <h4>Devices</h4>
                 <div class="device-list">
-                  {#each cfg.devices ?? [] as dev, di}
+                  {#each cfg.devices ?? [] as dev, di (di)}
                     <div class="device-row">
                       <input
                         type="text"
@@ -793,7 +793,7 @@
                           onChanged();
                         }}
                       >
-                        {#each EZO_DEVICE_TYPES as dt}
+                        {#each EZO_DEVICE_TYPES as dt (dt.type)}
                           <option value={dt.type}>{dt.display}</option>
                         {/each}
                       </select>

@@ -255,7 +255,7 @@
   </div>
 
   <nav id="workspace-tabs" aria-label="Workspace tabs">
-    {#each WORKSPACES as ws}
+    {#each WORKSPACES as ws (ws)}
       <button
         type="button"
         class="tab-btn"

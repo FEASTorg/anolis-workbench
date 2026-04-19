@@ -111,7 +111,7 @@
           {#if templates.length === 0}
             <option value="">No templates available</option>
           {:else}
-            {#each templates as t}
+            {#each templates as t (t.id)}
               <option value={t.id}>{t.meta?.name ?? t.id}</option>
             {/each}
           {/if}

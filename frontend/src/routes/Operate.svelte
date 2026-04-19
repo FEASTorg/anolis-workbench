@@ -676,7 +676,7 @@
         {#if providerHealth.length === 0}
           <li class="placeholder">No provider health available.</li>
         {:else}
-          {#each providerHealth as entry}
+          {#each providerHealth as entry (entry.provider_id)}
             {@const pid = typeof entry?.provider_id === "string" ? entry.provider_id : "unknown"}
             {@const q = normalizeProviderHealthQuality(
               entry?.health?.quality || entry?.state || "UNKNOWN",
@@ -702,7 +702,7 @@
           {#if devices.length === 0}
             <li class="placeholder">No devices found.</li>
           {:else}
-            {#each devices as device}
+            {#each devices as device (`${device.provider_id}/${device.device_id}`)}
               {@const key = `${device.provider_id}/${device.device_id}`}
               <li class:selected={key === selectedKey}>
                 <button
@@ -740,7 +740,7 @@
               <thead><tr><th>Signal</th><th>Value</th><th>Quality</th><th>Timestamp</th></tr></thead
               >
               <tbody>
-                {#each signals as sig}
+                {#each signals as sig (sig.signal_id)}
                   <tr>
                     <td>{sig.signal_id || "-"}</td>
                     <td>{formatValue(sig.value)}</td>
@@ -759,7 +759,7 @@
           {#if caps.functions?.length === 0}
             <p class="placeholder">No callable functions declared.</p>
           {:else}
-            {#each caps.functions as func}
+            {#each caps.functions as func (func.function_id)}
               {@const fbKey = `${selectedKey}:${func.function_id}`}
               <div class="function-card">
                 <h4>{func.display_name || func.name || `Function ${func.function_id}`}</h4>
@@ -772,7 +772,7 @@
                     void callFunction(selectedKey, func, getFuncFormData(selectedKey, func));
                   }}
                 >
-                  {#each func.args ?? [] as arg, ai}
+                  {#each func.args ?? [] as arg, ai (ai)}
                     <div class="arg-row">
                       <label for="fn-{fbKey}-{ai}">
                         {arg.name}{arg.required !== false ? " *" : ""}
@@ -832,7 +832,7 @@
         <p class="placeholder">No parameters available.</p>
       {:else}
         <div class="parameters-grid">
-          {#each parameters as param}
+          {#each parameters as param (param.name)}
             {@const ptype = normalizeParameterType(param.type)}
             <div class="parameter-card">
               <div class="parameter-header">
@@ -860,7 +860,7 @@
                       value={getParamInput(param.name) || String(param.value)}
                       onchange={(e: any) => setParamInput(param.name, e.target.value)}
                     >
-                      {#each param.allowed_values as av}
+                      {#each param.allowed_values as av (av)}
                         <option value={String(av)}>{String(av)}</option>
                       {/each}
                     </select>
@@ -938,7 +938,7 @@
         <p class="placeholder">No events yet.</p>
       {:else}
         <div class="event-items">
-          {#each [...eventTrace].reverse() as ev}
+          {#each [...eventTrace].reverse() as ev (ev.timestamp_ms)}
             {@const ts = Number.isFinite(Number(ev.timestamp_ms))
               ? new Date(Number(ev.timestamp_ms)).toLocaleTimeString()
               : "--"}

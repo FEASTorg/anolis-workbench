@@ -5,6 +5,18 @@
  * @param path Request path
  * @param options Fetch options
  */
+export class ApiResponseError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown = {}) {
+    super(message);
+    this.name = "ApiResponseError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 export async function fetchJson<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, options);
   const text = await response.text();
@@ -23,9 +35,19 @@ export async function fetchJson<T = unknown>(path: string, options: RequestInit 
       typeof errObj?.error === "string" && errObj.error.trim() !== ""
         ? errObj.error
         : `HTTP ${response.status}`;
-    throw new Error(message);
+    throw new ApiResponseError(message, response.status, data);
   }
   return data as T;
+}
+
+/**
+ * Shared raw fetch helper for non-JSON payloads (downloads, health probes).
+ *
+ * @param path Request path or URL
+ * @param options Fetch options
+ */
+export async function fetchResponse(path: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(path, options);
 }
 
 /**

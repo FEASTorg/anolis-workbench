@@ -38,6 +38,11 @@ export interface RuntimeStatus extends UnknownRecord {
   } & UnknownRecord;
 }
 
+export interface WorkbenchConfig extends UnknownRecord {
+  operator_ui_base?: string;
+  telemetry_url?: string;
+}
+
 export interface PreflightCheck extends UnknownRecord {
   name: string;
   ok: boolean | null;

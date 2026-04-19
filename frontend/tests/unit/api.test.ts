@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { downloadBlob, fetchJson, filenameFromContentDisposition } from "../../src/lib/api";
+import {
+  ApiResponseError,
+  downloadBlob,
+  fetchJson,
+  fetchResponse,
+  filenameFromContentDisposition,
+} from "../../src/lib/api";
 
 function mockFetch(response: { ok: boolean; status: number; body: string }) {
   const fetchMock = vi.fn(async () => ({
@@ -68,6 +74,20 @@ describe("fetchJson", () => {
     await expect(fetchJson("/api/projects/x")).rejects.toThrow("validation_failed");
   });
 
+  it("throws ApiResponseError with parsed payload for non-2xx JSON responses", async () => {
+    mockFetch({
+      ok: false,
+      status: 409,
+      body: JSON.stringify({ error: "already_running", code: "runtime_already_running" }),
+    });
+
+    await expect(fetchJson("/api/projects/x")).rejects.toBeInstanceOf(ApiResponseError);
+    await expect(fetchJson("/api/projects/x")).rejects.toMatchObject({
+      status: 409,
+      payload: { error: "already_running", code: "runtime_already_running" },
+    });
+  });
+
   it("throws raw HTTP+text when non-2xx response body is not JSON", async () => {
     mockFetch({ ok: false, status: 500, body: "plain failure" });
     await expect(fetchJson("/api/projects/x")).rejects.toThrow("HTTP 500: plain failure");
@@ -76,6 +96,23 @@ describe("fetchJson", () => {
   it("falls back to status code when non-2xx response body is empty", async () => {
     mockFetch({ ok: false, status: 503, body: "" });
     await expect(fetchJson("/api/projects/x")).rejects.toThrow("HTTP 503");
+  });
+});
+
+describe("fetchResponse", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns raw fetch response for binary/stream workflows", async () => {
+    const mockResponse = { ok: true, status: 200 } as Response;
+    const fetchMock = vi.fn(async () => mockResponse);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchResponse("/api/projects/demo/export", { method: "POST" })).resolves.toBe(
+      mockResponse,
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/demo/export", { method: "POST" });
   });
 });
 

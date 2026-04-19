@@ -1,13 +1,18 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { fetchJson, downloadBlob, filenameFromContentDisposition } from "../lib/api";
+  import {
+    ApiResponseError,
+    downloadBlob,
+    fetchJson,
+    fetchResponse,
+    filenameFromContentDisposition,
+  } from "../lib/api";
   import type {
     PreflightResult,
     ProviderHealth,
     RuntimeApiStatus,
     RuntimeStatus,
     SystemConfig,
-    UnknownRecord,
   } from "../lib/contracts";
 
   let {
@@ -65,20 +70,22 @@
   const operatorUiBase = $derived(() => {
     const explicit = system?.topology?.runtime?.operator_ui_base;
     if (typeof explicit === "string" && explicit.trim()) return explicit.trim().replace(/\/$/, "");
-    const origins = system?.topology?.runtime?.cors_origins;
-    if (Array.isArray(origins)) {
-      const o = origins.find((x) => typeof x === "string" && /^https?:\/\//i.test(x));
-      if (o) return o.trim().replace(/\/$/, "");
-    }
     const fromGlobal = window.__ANOLIS_COMPOSER__?.operatorUiBase;
     if (typeof fromGlobal === "string" && fromGlobal.trim())
       return fromGlobal.trim().replace(/\/$/, "");
-    return "http://localhost:3000";
+    return "";
+  });
+  const runtimeApiBase = $derived(() => {
+    const bind = system?.topology?.runtime?.http_bind;
+    const port = system?.topology?.runtime?.http_port;
+    if (typeof bind !== "string" || bind.trim() === "") return "";
+    if (!Number.isFinite(Number(port))) return "";
+    return `http://${bind.trim()}:${Number(port)}`;
   });
   const operatorUiLink = $derived(() => {
-    const bind = system?.topology?.runtime?.http_bind || "127.0.0.1";
-    const port = system?.topology?.runtime?.http_port || 8080;
-    return `${operatorUiBase()}?api=${encodeURIComponent(`http://${bind}:${port}`)}`;
+    if (!operatorUiBase()) return "";
+    if (!runtimeApiBase()) return "";
+    return `${operatorUiBase()}?api=${encodeURIComponent(runtimeApiBase())}`;
   });
 
   // ── Reactive: sync running state when commissionRunningForCurrent changes ─
@@ -105,17 +112,14 @@
     stopHealthPolling();
     healthStartedAt = Date.now();
     healthStatus = "starting";
-    const bind = system?.topology?.runtime?.http_bind || "127.0.0.1";
-    const port = system?.topology?.runtime?.http_port || 8080;
-    const url = `http://${bind}:${port}/v0/runtime/status`;
     healthTimer = setInterval(async () => {
       if (Date.now() - healthStartedAt < 10_000) {
         healthStatus = "starting";
         return;
       }
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
-        healthStatus = res.ok ? "healthy" : "unavailable";
+        await fetchJson<RuntimeApiStatus>("/v0/runtime/status");
+        healthStatus = "healthy";
       } catch {
         healthStatus = "unavailable";
       }
@@ -300,7 +304,7 @@
     stopRunning = true;
     actionError = "";
     try {
-      await fetch(`/api/projects/${encodeURIComponent(projectName)}/stop`, {
+      await fetchJson(`/api/projects/${encodeURIComponent(projectName)}/stop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}",
@@ -345,17 +349,16 @@
     exportFeedback = "";
     exportIsError = false;
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(projectName)}/export`, {
+      const res = await fetchResponse(`/api/projects/${encodeURIComponent(projectName)}/export`, {
         method: "POST",
       });
       if (!res.ok) {
-        const p = (await res.json().catch(() => ({}))) as UnknownRecord;
-        exportFeedback =
-          typeof p.error === "string" && p.error.trim() !== ""
-            ? p.error
+        const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        const message =
+          typeof payload.error === "string" && payload.error.trim() !== ""
+            ? payload.error
             : `Export failed (HTTP ${res.status})`;
-        exportIsError = true;
-        return;
+        throw new ApiResponseError(message, res.status, payload);
       }
       const blob = await res.blob();
       const fallback = `${projectName}.anpkg`;
@@ -468,12 +471,16 @@
 
       {#if healthStatus === "healthy"}
         <div style="margin-top:8px;font-size:12px;">
-          <a href={operatorUiLink()} target="_blank" rel="noopener noreferrer"
-            >Open in Operator UI →</a
-          >
-          <span class="launch-summary" style="margin-left:8px;"
-            >Operator UI base URL is configurable.</span
-          >
+          {#if operatorUiLink()}
+            <a href={operatorUiLink()} target="_blank" rel="noopener noreferrer"
+              >Open in Operator UI →</a
+            >
+            <span class="launch-summary" style="margin-left:8px;"
+              >Operator UI base URL is configurable.</span
+            >
+          {:else}
+            <span class="launch-summary">Operator UI link is unavailable.</span>
+          {/if}
         </div>
       {/if}
     {/if}

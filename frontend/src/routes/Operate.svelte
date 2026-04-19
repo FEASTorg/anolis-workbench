@@ -13,6 +13,7 @@
     RuntimeStatus,
     TypedValue,
     UnknownRecord,
+    WorkbenchConfig,
   } from "../lib/contracts";
   import {
     coerceParameterValue,
@@ -92,8 +93,17 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let telemetryLoaded = $state<boolean>(false);
   let telemetryFrame = $state<HTMLIFrameElement | null>(null);
+  let workbenchConfig = $state<WorkbenchConfig | null>(null);
 
-  const TELEMETRY_URL = "http://localhost:3001";
+  const telemetryUrl = $derived(() => {
+    const fromConfig = workbenchConfig?.telemetry_url;
+    if (typeof fromConfig === "string" && fromConfig.trim())
+      return fromConfig.trim().replace(/\/$/, "");
+    const fromGlobal = window.__ANOLIS_COMPOSER__?.telemetryUrl;
+    if (typeof fromGlobal === "string" && fromGlobal.trim())
+      return fromGlobal.trim().replace(/\/$/, "");
+    return "";
+  });
   const EVENT_TRACE_LIMIT = 100;
 
   // ── Availability: react to prop changes ───────────────────────────────────
@@ -110,6 +120,7 @@
   // ── Core activate/deactivate ──────────────────────────────────────────────
   function startOperate(): void {
     if (pollTimer !== null) return; // already running
+    void loadWorkbenchConfig();
     ensureTelemetryLoaded();
     void refreshOperate();
     pollTimer = setInterval(() => void refreshOperate(), 5000);
@@ -140,12 +151,33 @@
     modeBadgeClass = "unknown";
     providerHealth = [];
     eventTrace = [];
+    telemetryLoaded = false;
   }
 
   function ensureTelemetryLoaded(): void {
-    if (!telemetryFrame || telemetryLoaded) return;
-    telemetryFrame.src = TELEMETRY_URL;
+    const url = telemetryUrl();
+    if (!telemetryFrame || telemetryLoaded || !url) return;
+    telemetryFrame.src = url;
     telemetryLoaded = true;
+  }
+
+  async function loadWorkbenchConfig(): Promise<void> {
+    try {
+      const config = await fetchJson<WorkbenchConfig>("/api/config");
+      workbenchConfig = config;
+      const next = { ...(window.__ANOLIS_COMPOSER__ ?? {}) };
+      if (typeof config.operator_ui_base === "string" && config.operator_ui_base.trim()) {
+        next.operatorUiBase = config.operator_ui_base.trim().replace(/\/$/, "");
+      }
+      if (typeof config.telemetry_url === "string" && config.telemetry_url.trim()) {
+        next.telemetryUrl = config.telemetry_url.trim().replace(/\/$/, "");
+      }
+      window.__ANOLIS_COMPOSER__ = next;
+      telemetryLoaded = false;
+      ensureTelemetryLoaded();
+    } catch {
+      // non-fatal; leave telemetry panel in unavailable state when not configured
+    }
   }
 
   // ── Poll ──────────────────────────────────────────────────────────────────
@@ -994,18 +1026,22 @@
     <!-- Telemetry iframe -->
     <div class="operate-section">
       <h3>Telemetry</h3>
-      <div class="telemetry-bar">
-        <a href={TELEMETRY_URL} target="_blank" rel="noopener noreferrer"
-          >Open Grafana in new tab →</a
-        >
-      </div>
-      <iframe
-        bind:this={telemetryFrame}
-        title="Telemetry"
-        class="telemetry-frame"
-        frameborder="0"
-        allowfullscreen
-      ></iframe>
+      {#if telemetryUrl()}
+        <div class="telemetry-bar">
+          <a href={telemetryUrl()} target="_blank" rel="noopener noreferrer"
+            >Open Grafana in new tab →</a
+          >
+        </div>
+        <iframe
+          bind:this={telemetryFrame}
+          title="Telemetry"
+          class="telemetry-frame"
+          frameborder="0"
+          allowfullscreen
+        ></iframe>
+      {:else}
+        <p class="placeholder">Telemetry URL is not configured.</p>
+      {/if}
     </div>
   {/if}
 </section>

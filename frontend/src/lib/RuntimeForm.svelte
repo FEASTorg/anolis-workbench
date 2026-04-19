@@ -102,7 +102,7 @@
     <label>CORS origins (one per line)</label>
     <textarea
       rows="3"
-      placeholder="http://localhost:3000"
+      placeholder="https://operator-ui.example"
       value={(rt.cors_origins ?? []).join("\n")}
       oninput={(e: Event) => setCorsOrigins(textAreaTarget(e).value)}
     ></textarea>
@@ -196,7 +196,7 @@
         type="text"
         spellcheck="false"
         style="font-family:monospace"
-        placeholder="http://localhost:8086"
+        placeholder="https://influxdb.example:8086"
         value={rt.telemetry?.influxdb?.url ?? ""}
         oninput={(e: Event) => setInflux("url", inputTarget(e).value.trim())}
       />

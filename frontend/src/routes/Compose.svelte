@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { ProviderCatalog, RuntimeStatus, SystemConfig } from "../lib/contracts";
+  import { ApiResponseError, fetchJson } from "../lib/api";
+  import type {
+    ApiErrorResponse,
+    ProviderCatalog,
+    RuntimeStatus,
+    SystemConfig,
+  } from "../lib/contracts";
   import RuntimeForm from "../lib/RuntimeForm.svelte";
   import ProviderList from "../lib/ProviderList.svelte";
 
@@ -39,19 +45,17 @@
     saveError = "";
     saveErrors = [];
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(projectName)}`, {
+      await fetchJson(`/api/projects/${encodeURIComponent(projectName)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(system),
       });
-      const payload = await res.json().catch(() => ({}));
-      if (res.ok) {
-        onSaved();
-        return;
-      }
-      saveErrors = Array.isArray(payload?.errors) ? payload.errors : [];
-      saveError = payload?.error || "Save failed";
+      onSaved();
     } catch (err) {
+      if (err instanceof ApiResponseError && err.payload && typeof err.payload === "object") {
+        const payload = err.payload as ApiErrorResponse;
+        saveErrors = Array.isArray(payload.errors) ? payload.errors : [];
+      }
       saveError = err instanceof Error ? err.message : "Save failed";
     } finally {
       saving = false;

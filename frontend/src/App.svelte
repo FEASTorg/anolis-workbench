@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import ConfirmModal from "./lib/ConfirmModal.svelte";
   import Home from "./routes/Home.svelte";
   import Compose from "./routes/Compose.svelte";
   import Commission from "./routes/Commission.svelte";
@@ -11,6 +12,7 @@
     RuntimeStatus,
     SystemConfig,
     TemplateSummary,
+    WorkbenchConfig,
   } from "./lib/contracts";
   import { describeCrossProjectRunningBanner, evaluateNavigationPrompts } from "./lib/guards";
 
@@ -34,6 +36,9 @@
   let dirty = $state<boolean>(false);
   let currentPath = $state<string>("/");
   let commissionRunningForCurrent = $state<boolean>(false);
+  let confirmModalOpen = $state<boolean>(false);
+  let confirmModalMessage = $state<string>("");
+  let pendingConfirmResolve: ((value: boolean) => void) | null = null;
   let lastNavigationId = 0;
 
   // ── Derived ──────────────────────────────────────────────────────────────
@@ -59,7 +64,41 @@
     return { path: `/projects/${encodeURIComponent(project)}/${ws}`, project, workspace: ws };
   }
 
-  function confirmNavigation(route: Route): boolean {
+  function updateWindowComposerConfig({
+    operatorUiBase,
+    telemetryUrl,
+  }: {
+    operatorUiBase?: string;
+    telemetryUrl?: string;
+  }): void {
+    const next = { ...(window.__ANOLIS_COMPOSER__ ?? {}) };
+    if (typeof operatorUiBase === "string" && operatorUiBase.trim()) {
+      next.operatorUiBase = operatorUiBase.trim().replace(/\/$/, "");
+    }
+    if (typeof telemetryUrl === "string" && telemetryUrl.trim()) {
+      next.telemetryUrl = telemetryUrl.trim().replace(/\/$/, "");
+    }
+    window.__ANOLIS_COMPOSER__ = next;
+  }
+
+  function promptNavigationConfirm(message: string): Promise<boolean> {
+    if (pendingConfirmResolve) pendingConfirmResolve(false);
+    confirmModalMessage = message;
+    confirmModalOpen = true;
+    return new Promise<boolean>((resolve) => {
+      pendingConfirmResolve = resolve;
+    });
+  }
+
+  function settleNavigationConfirm(value: boolean): void {
+    const resolve = pendingConfirmResolve;
+    pendingConfirmResolve = null;
+    confirmModalOpen = false;
+    confirmModalMessage = "";
+    if (resolve) resolve(value);
+  }
+
+  async function confirmNavigation(route: Route): Promise<boolean> {
     const prompts = evaluateNavigationPrompts({
       dirty,
       currentProject: projectName,
@@ -70,7 +109,8 @@
       runningProject: runningProject ?? "",
     });
     for (const p of prompts) {
-      if (!window.confirm(p.message)) return false;
+      const confirmed = await promptNavigationConfirm(p.message);
+      if (!confirmed) return false;
     }
     return true;
   }
@@ -89,7 +129,7 @@
       return navigateTo("/", { replaceHistory: true, historyAlreadySet: true, bypassGuards });
     }
 
-    if (!bypassGuards && !confirmNavigation(route)) return false;
+    if (!bypassGuards && !(await confirmNavigation(route))) return false;
 
     const navId = ++lastNavigationId;
     if (!historyAlreadySet) {
@@ -146,13 +186,7 @@
     try {
       const status = await fetchJson<RuntimeStatus>("/api/status");
       runtimeStatus = status;
-      const operatorUiBase = status?.composer?.operator_ui_base;
-      if (typeof operatorUiBase === "string" && operatorUiBase.trim()) {
-        window.__ANOLIS_COMPOSER__ = {
-          ...(window.__ANOLIS_COMPOSER__ ?? {}),
-          operatorUiBase: operatorUiBase.trim(),
-        };
-      }
+      updateWindowComposerConfig({ operatorUiBase: status?.composer?.operator_ui_base });
       const nowRunningForCurrent =
         Boolean(status?.running) && status?.active_project === projectName;
       if (workspace === "commission" && nowRunningForCurrent !== commissionRunningForCurrent) {
@@ -160,6 +194,18 @@
       }
     } catch {
       // non-fatal; keep prior status
+    }
+  }
+
+  async function refreshWorkbenchConfig(): Promise<void> {
+    try {
+      const config = await fetchJson<WorkbenchConfig>("/api/config");
+      updateWindowComposerConfig({
+        operatorUiBase: config.operator_ui_base,
+        telemetryUrl: config.telemetry_url,
+      });
+    } catch {
+      // non-fatal; keep prior globals
     }
   }
 
@@ -199,6 +245,7 @@
             projects = p;
           })
           .catch(() => {}),
+        refreshWorkbenchConfig(),
         refreshStatus(),
       ]);
 
@@ -212,6 +259,7 @@
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
+      if (pendingConfirmResolve) pendingConfirmResolve(false);
       if (statusInterval !== null) clearInterval(statusInterval);
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -312,3 +360,13 @@
     <Operate {projectName} {runtimeStatus} />
   {/if}
 </main>
+
+<ConfirmModal
+  open={confirmModalOpen}
+  title="Confirm Navigation"
+  message={confirmModalMessage}
+  confirmLabel="Continue"
+  cancelLabel="Stay Here"
+  onConfirm={() => settleNavigationConfirm(true)}
+  onCancel={() => settleNavigationConfirm(false)}
+/>

@@ -32,8 +32,7 @@ export default [
     },
     rules: {
       ...tsPlugin.configs["recommended"].rules,
-      // Warn on explicit any — escalate to error in Phase 4 once types are hardened
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },
@@ -57,8 +56,7 @@ export default [
       "@typescript-eslint": tsPlugin,
     },
     rules: {
-      // Warn on explicit any in svelte script blocks — escalate in Phase 4
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },

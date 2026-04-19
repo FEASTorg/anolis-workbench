@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { fetchJson, downloadBlob, filenameFromContentDisposition } from "../lib/api";
+  import type {
+    PreflightResult,
+    ProviderHealth,
+    RuntimeApiStatus,
+    RuntimeStatus,
+    SystemConfig,
+    UnknownRecord,
+  } from "../lib/contracts";
 
   let {
     projectName,
@@ -9,8 +17,8 @@
     commissionRunningForCurrent,
   }: {
     projectName: string | null;
-    system: Record<string, any> | null;
-    runtimeStatus: Record<string, any>;
+    system: SystemConfig | null;
+    runtimeStatus: RuntimeStatus | null;
     commissionRunningForCurrent: boolean;
   } = $props();
 
@@ -23,7 +31,7 @@
   );
 
   // ── Launch state ───────────────────────────────────────────────────────────
-  let preflightResults = $state<any | null>(null); // null | { ok, checks }
+  let preflightResults = $state<PreflightResult | null>(null);
   let preflightRunning = $state<boolean>(false);
   let launchRunning = $state<boolean>(false);
   let stopRunning = $state<boolean>(false);
@@ -43,8 +51,8 @@
   let logEl = $state<HTMLDivElement | null>(null);
 
   // ── Commission health panel ───────────────────────────────────────────────
-  let commissionRuntimeStatus = $state<any | null>(null);
-  let commissionProviderHealth = $state<any[]>([]);
+  let commissionRuntimeStatus = $state<RuntimeApiStatus | null>(null);
+  let commissionProviderHealth = $state<ProviderHealth[]>([]);
   let commissionHealthError = $state<string>("");
   let commissionHealthTimer = $state<ReturnType<typeof setInterval> | null>(null);
 
@@ -62,7 +70,7 @@
       const o = origins.find((x) => typeof x === "string" && /^https?:\/\//i.test(x));
       if (o) return o.trim().replace(/\/$/, "");
     }
-    const fromGlobal = (window as any).__ANOLIS_COMPOSER__?.operatorUiBase;
+    const fromGlobal = window.__ANOLIS_COMPOSER__?.operatorUiBase;
     if (typeof fromGlobal === "string" && fromGlobal.trim())
       return fromGlobal.trim().replace(/\/$/, "");
     return "http://localhost:3000";
@@ -130,7 +138,7 @@
     logVisible = true;
     logAutoScroll = true;
     logEventSource = new EventSource(`/api/projects/${encodeURIComponent(projectName)}/logs`);
-    logEventSource.onmessage = (e: any) => {
+    logEventSource.onmessage = (e: MessageEvent<string>) => {
       logLines =
         logLines.length >= 1000 ? [...logLines.slice(-999), e.data] : [...logLines, e.data];
       const el = logEl;
@@ -151,8 +159,8 @@
     }
   }
 
-  function handleLogScroll(e) {
-    const el = e.target;
+  function handleLogScroll(e: Event): void {
+    const el = e.currentTarget as HTMLDivElement;
     logAutoScroll = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
   }
 
@@ -174,9 +182,9 @@
 
   async function refreshCommissionHealth() {
     if (!projectName) return;
-    let status;
+    let status: RuntimeStatus;
     try {
-      status = await fetchJson("/api/status");
+      status = await fetchJson<RuntimeStatus>("/api/status");
     } catch (err) {
       commissionHealthError = `Control API unavailable: ${err instanceof Error ? err.message : String(err)}`;
       return;
@@ -194,15 +202,15 @@
     }
     commissionHealthError = "";
     const [rtResult, phResult] = await Promise.allSettled([
-      fetchJson("/v0/runtime/status"),
-      fetchJson("/v0/providers/health"),
+      fetchJson<RuntimeApiStatus>("/v0/runtime/status"),
+      fetchJson<{ providers: ProviderHealth[] }>("/v0/providers/health"),
     ]);
     commissionRuntimeStatus = rtResult.status === "fulfilled" ? rtResult.value : null;
     commissionProviderHealth =
       phResult.status === "fulfilled" ? (phResult.value?.providers ?? []) : [];
   }
 
-  function stateClass(state) {
+  function stateClass(state: unknown): string {
     const u = String(state || "").toUpperCase();
     if (u === "AVAILABLE" || u === "RUNNING") return "ok";
     if (u === "UNAVAILABLE" || u === "STALE") return "unavailable";
@@ -217,7 +225,9 @@
     preflightResults = null;
     actionError = "";
     try {
-      const data = await fetchJson(`/api/projects/${encodeURIComponent(projectName)}/preflight`, {
+      const data = await fetchJson<PreflightResult>(
+        `/api/projects/${encodeURIComponent(projectName)}/preflight`,
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}",
@@ -231,7 +241,10 @@
   }
 
   // ── Launch ─────────────────────────────────────────────────────────────────
-  function deriveLaunchBlockReason(status, target) {
+  function deriveLaunchBlockReason(
+    status: RuntimeStatus | null | undefined,
+    target: string,
+  ): string {
     if (!status || typeof status !== "object") return "";
     const r = Boolean(status.running);
     const rp =
@@ -249,9 +262,9 @@
     launchRunning = true;
     actionError = "";
     try {
-      let status;
+      let status: RuntimeStatus | undefined;
       try {
-        status = await fetchJson("/api/status");
+        status = await fetchJson<RuntimeStatus>("/api/status");
       } catch {
         /* non-fatal pre-check */
       }
@@ -336,8 +349,11 @@
         method: "POST",
       });
       if (!res.ok) {
-        const p = await res.json().catch(() => ({}));
-        exportFeedback = p?.error || `Export failed (HTTP ${res.status})`;
+        const p = (await res.json().catch(() => ({}))) as UnknownRecord;
+        exportFeedback =
+          typeof p.error === "string" && p.error.trim() !== ""
+            ? p.error
+            : `Export failed (HTTP ${res.status})`;
         exportIsError = true;
         return;
       }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fetchJson } from "../lib/api";
+  import type { ProjectSummary, TemplateSummary } from "../lib/contracts";
 
   let {
     projects,
@@ -7,8 +8,8 @@
     onNavigate,
     onProjectsRefreshed,
   }: {
-    projects: Array<{ name: string }>;
-    templates: Array<{ id: string; meta?: { name?: string } }>;
+    projects: ProjectSummary[];
+    templates: TemplateSummary[];
     onNavigate: (path: string) => void;
     onProjectsRefreshed: () => Promise<void> | void;
   } = $props();

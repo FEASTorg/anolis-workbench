@@ -1,37 +1,56 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { fetchJson } from "../lib/api";
+  import type {
+    AutomationStatus,
+    Device,
+    DeviceCapabilities,
+    DeviceStateValue,
+    FunctionSpec,
+    ParameterDefinition,
+    ProviderHealth,
+    RuntimeApiStatus,
+    RuntimeStatus,
+    TypedValue,
+    UnknownRecord,
+  } from "../lib/contracts";
   import {
-    extractDevices,
-    extractProvidersHealth,
-    extractCapabilities,
-    extractDeviceStateValues,
-    extractMode,
-    extractRuntimeStatus,
+    coerceParameterValue,
+    deriveOperateAvailability,
     extractAutomationStatus,
     extractAutomationTree,
+    extractCapabilities,
+    extractDeviceStateValues,
+    extractDevices,
+    extractMode,
     extractParameters,
-    normalizeProviderHealthQuality,
-    deriveOperateAvailability,
-    coerceParameterValue,
+    extractProvidersHealth,
+    extractRuntimeStatus,
     normalizeParameterType,
+    normalizeProviderHealthQuality,
     renderBtOutline,
   } from "../lib/operate-contracts";
   import {
-    createOperateEventStreamManager,
-    buildTraceEvent,
     appendEventTrace,
+    buildTraceEvent,
+    createOperateEventStreamManager,
   } from "../lib/operate-events";
 
   let {
     projectName,
-    system,
     runtimeStatus,
   }: {
     projectName: string | null;
-    system: Record<string, any> | null;
-    runtimeStatus: Record<string, any>;
+    runtimeStatus: RuntimeStatus | null;
   } = $props();
+
+  function inputTarget(event: Event): HTMLInputElement {
+    return event.currentTarget as HTMLInputElement;
+  }
+
+  function selectTarget(event: Event): HTMLSelectElement {
+    return event.currentTarget as HTMLSelectElement;
+  }
 
   const running = $derived(Boolean(runtimeStatus?.running));
   const runningProject = $derived(
@@ -48,18 +67,16 @@
   let modeFeedbackClass = $state<string>("field-note");
   let setModeRunning = $state<boolean>(false);
 
-  let providerHealth = $state<any[]>([]);
-  let devices = $state<any[]>([]);
+  let providerHealth = $state<ProviderHealth[]>([]);
+  let devices = $state<Device[]>([]);
   let selectedKey = $state<string>("");
-  let deviceStates = $state<Record<string, any[]>>({});
-  let capabilities = $state<Record<string, any>>({});
-  let runtimeStatusData = $state<Record<string, any> | null>(null);
-  let parameters = $state<any[]>([]);
-  let automationStatus = $state<Record<string, any> | null>(null);
+  let deviceStates = $state<Record<string, DeviceStateValue[]>>({});
+  let capabilities = $state<Record<string, DeviceCapabilities>>({});
+  let runtimeStatusData = $state<RuntimeApiStatus | null>(null);
+  let parameters = $state<ParameterDefinition[]>([]);
+  let automationStatus = $state<AutomationStatus | null>(null);
   let behaviorTree = $state<string>("");
-  let eventTrace = $state<
-    Array<{ type: string; timestamp_ms: number; details: string; payload?: any }>
-  >([]);
+  let eventTrace = $state<Array<{ type: string; timestamp_ms: number; details: string }>>([]);
 
   let streamStatus = $state<{
     state: string;
@@ -91,7 +108,7 @@
   onDestroy(() => stopOperate());
 
   // ── Core activate/deactivate ──────────────────────────────────────────────
-  function startOperate() {
+  function startOperate(): void {
     if (pollTimer !== null) return; // already running
     ensureTelemetryLoaded();
     void refreshOperate();
@@ -99,7 +116,7 @@
     ensureEventStream();
   }
 
-  function stopOperate() {
+  function stopOperate(): void {
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
@@ -108,7 +125,7 @@
     clearOperateData();
   }
 
-  function clearOperateData() {
+  function clearOperateData(): void {
     devices = [];
     selectedKey = "";
     deviceStates = {};
@@ -125,7 +142,7 @@
     eventTrace = [];
   }
 
-  function ensureTelemetryLoaded() {
+  function ensureTelemetryLoaded(): void {
     if (!telemetryFrame || telemetryLoaded) return;
     telemetryFrame.src = TELEMETRY_URL;
     telemetryLoaded = true;
@@ -134,10 +151,10 @@
   // ── Poll ──────────────────────────────────────────────────────────────────
   async function refreshOperate(): Promise<void> {
     if (!projectName) return;
-    let status;
+    let status: RuntimeStatus;
     try {
-      status = await fetchJson("/api/status");
-    } catch (err) {
+      status = await fetchJson<RuntimeStatus>("/api/status");
+    } catch {
       mode = "--";
       modeBadgeClass = "unknown";
       return;
@@ -154,13 +171,13 @@
     ensureTelemetryLoaded();
 
     const [modeRes, phRes, devRes, rtRes, parRes, asRes, atRes] = await Promise.allSettled([
-      fetchJson("/v0/mode"),
-      fetchJson("/v0/providers/health"),
-      fetchJson("/v0/devices"),
-      fetchJson("/v0/runtime/status"),
-      fetchJson("/v0/parameters"),
-      fetchJson("/v0/automation/status"),
-      fetchJson("/v0/automation/tree"),
+      fetchJson<UnknownRecord>("/v0/mode"),
+      fetchJson<UnknownRecord>("/v0/providers/health"),
+      fetchJson<UnknownRecord>("/v0/devices"),
+      fetchJson<UnknownRecord>("/v0/runtime/status"),
+      fetchJson<UnknownRecord>("/v0/parameters"),
+      fetchJson<UnknownRecord>("/v0/automation/status"),
+      fetchJson<UnknownRecord>("/v0/automation/tree"),
     ]);
 
     if (modeRes.status === "fulfilled") {
@@ -177,8 +194,9 @@
 
     if (devRes.status === "fulfilled") {
       devices = extractDevices(devRes.value);
-      if (devices.length && !selectedKey)
+      if (devices.length && !selectedKey) {
         selectedKey = `${devices[0].provider_id}/${devices[0].device_id}`;
+      }
       await ensureSelectedDeviceLoaded();
     } else {
       devices = [];
@@ -192,23 +210,25 @@
 
   async function refreshParametersOnly(): Promise<void> {
     try {
-      const p = await fetchJson("/v0/parameters");
+      const p = await fetchJson<UnknownRecord>("/v0/parameters");
       parameters = extractParameters(p);
     } catch {
       /* best-effort */
     }
   }
+
   async function refreshProviderHealthOnly(): Promise<void> {
     try {
-      const p = await fetchJson("/v0/providers/health");
+      const p = await fetchJson<UnknownRecord>("/v0/providers/health");
       providerHealth = extractProvidersHealth(p);
     } catch {
       /* best-effort */
     }
   }
+
   async function refreshModeOnly(): Promise<void> {
     try {
-      const p = await fetchJson("/v0/mode");
+      const p = await fetchJson<UnknownRecord>("/v0/mode");
       const m = extractMode(p) ?? "UNKNOWN";
       mode = m;
       modeBadgeClass = "ok";
@@ -225,7 +245,7 @@
     const dev = getSelectedDevice();
     if (!dev) return;
     try {
-      const vp = await fetchJson(
+      const vp = await fetchJson<UnknownRecord>(
         `/v0/state/${encodeURIComponent(dev.provider_id)}/${encodeURIComponent(dev.device_id)}`,
       );
       deviceStates = { ...deviceStates, [selectedKey]: extractDeviceStateValues(vp) };
@@ -234,17 +254,17 @@
     }
     if (!capabilities[selectedKey]) {
       try {
-        const cp = await fetchJson(
+        const cp = await fetchJson<UnknownRecord>(
           `/v0/devices/${encodeURIComponent(dev.provider_id)}/${encodeURIComponent(dev.device_id)}/capabilities`,
         );
         capabilities = { ...capabilities, [selectedKey]: extractCapabilities(cp) };
       } catch {
-        capabilities = { ...capabilities, [selectedKey]: { functions: [] } };
+        capabilities = { ...capabilities, [selectedKey]: { functions: [], signals: [] } };
       }
     }
   }
 
-  function getSelectedDevice(): any | null {
+  function getSelectedDevice(): Device | null {
     if (!selectedKey) return null;
     return devices.find((d) => `${d.provider_id}/${d.device_id}` === selectedKey) ?? null;
   }
@@ -261,7 +281,7 @@
     modeFeedback = "";
     modeFeedbackClass = "field-note";
     try {
-      await fetchJson("/v0/mode", {
+      await fetchJson<UnknownRecord>("/v0/mode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: modeSelectorValue }),
@@ -282,15 +302,15 @@
 
   async function callFunction(
     deviceKey: string,
-    func: any,
-    formData: Record<string, any>,
+    func: FunctionSpec,
+    formData: Record<string, unknown>,
   ): Promise<void> {
     const fbKey = `${deviceKey}:${func.function_id}`;
     const [providerId, deviceId] = deviceKey.split("/");
     functionFeedback = { ...functionFeedback, [fbKey]: { text: "Executing...", cls: "" } };
     try {
       const argsPayload = buildArgsPayload(func, formData);
-      await fetchJson("/v0/call", {
+      await fetchJson<UnknownRecord>("/v0/call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -315,12 +335,14 @@
     }
   }
 
-  function buildArgsPayload(func: any, formData: Record<string, any>): Record<string, any> {
-    const INT64_MIN = -9223372036854775808n,
-      INT64_MAX = 9223372036854775807n;
-    const JS_SAFE_MIN = BigInt(Number.MIN_SAFE_INTEGER),
-      JS_SAFE_MAX = BigInt(Number.MAX_SAFE_INTEGER);
-    const args = {};
+  function buildArgsPayload(
+    func: FunctionSpec,
+    formData: Record<string, unknown>,
+  ): Record<string, TypedValue> {
+    const INT64_MIN = -9223372036854775808n;
+    const INT64_MAX = 9223372036854775807n;
+    const JS_SAFE_MAX = BigInt(Number.MAX_SAFE_INTEGER);
+    const args: Record<string, TypedValue> = {};
     for (const [i, argDef] of (func.args ?? []).entries()) {
       const argType = argDef.type || "string";
       const raw = formData[`arg_${i}`];
@@ -340,21 +362,22 @@
         continue;
       }
       if (argType === "int64") {
-        let n;
+        let n: bigint;
         try {
           n = BigInt(value);
         } catch {
           throw new Error(`Invalid int64: ${argDef.name}`);
         }
         if (n < INT64_MIN || n > INT64_MAX) throw new Error(`Out-of-range int64: ${argDef.name}`);
-        if (n < JS_SAFE_MIN || n > JS_SAFE_MAX)
+        if (n > JS_SAFE_MAX || n < -JS_SAFE_MAX) {
           throw new Error(`int64 out of browser-safe range: ${argDef.name}`);
+        }
         args[argDef.name] = { type: "int64", int64: Number(n) };
         continue;
       }
       if (argType === "uint64") {
         const UINT64_MAX = 18446744073709551615n;
-        let n;
+        let n: bigint;
         try {
           n = BigInt(value);
         } catch {
@@ -377,7 +400,7 @@
   // ── Parameter update ──────────────────────────────────────────────────────
   let paramFeedback = $state<Record<string, { text: string; cls: string }>>({});
 
-  async function updateParameter(param: any, rawValue: unknown): Promise<void> {
+  async function updateParameter(param: ParameterDefinition, rawValue: unknown): Promise<void> {
     const type = normalizeParameterType(param.type);
     paramFeedback = { ...paramFeedback, [param.name]: { text: "", cls: "" } };
     try {
@@ -388,7 +411,7 @@
         max: param.max,
         allowedValues: param.allowed_values,
       });
-      await fetchJson("/v0/parameters", {
+      await fetchJson<UnknownRecord>("/v0/parameters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: param.name, value }),
@@ -410,7 +433,7 @@
   }
 
   // ── SSE Event stream ──────────────────────────────────────────────────────
-  function ensureEventStream() {
+  function ensureEventStream(): void {
     if (streamManager) return;
     streamManager = createOperateEventStreamManager({
       url: "/v0/events",
@@ -440,7 +463,7 @@
     streamManager.connect();
   }
 
-  function closeEventStream() {
+  function closeEventStream(): void {
     if (streamManager) {
       streamManager.disconnect();
       streamManager = null;
@@ -448,7 +471,7 @@
     streamStatus = { state: "disconnected", attempts: 0 };
   }
 
-  function handleSseEvent(eventType: string, payload: Record<string, any>): void {
+  function handleSseEvent(eventType: string, payload: UnknownRecord): void {
     if (eventType === "state_update") consumeStateEvent(payload);
     else if (eventType === "quality_change") consumeQualityEvent(payload);
     else if (eventType === "mode_change") consumeModeChangeEvent(payload);
@@ -460,7 +483,7 @@
 
   function addTraceEvent(
     type: string,
-    payload: Record<string, any>,
+    payload: UnknownRecord,
     detailsOverride: string | null = null,
   ): void {
     const ev = buildTraceEvent(type, payload, Date.now());
@@ -470,37 +493,50 @@
     eventTrace = buf;
   }
 
-  function consumeStateEvent(payload: Record<string, any>): void {
-    const key = `${payload.provider_id}/${payload.device_id}`;
+  function consumeStateEvent(payload: UnknownRecord): void {
+    const providerId = typeof payload.provider_id === "string" ? payload.provider_id : "";
+    const deviceId = typeof payload.device_id === "string" ? payload.device_id : "";
+    const signalId = typeof payload.signal_id === "string" ? payload.signal_id : "";
+    if (!providerId || !deviceId || !signalId) return;
+    const key = `${providerId}/${deviceId}`;
     const values = [...(deviceStates[key] ?? [])];
-    const idx = values.findIndex((e) => e.signal_id === payload.signal_id);
+    const idx = values.findIndex((e) => e.signal_id === signalId);
     const normalized = {
       ...payload,
+      signal_id: signalId,
       timestamp_ms: Number(payload.timestamp_ms) || Number(payload.timestamp_epoch_ms) || 0,
-    };
+    } as DeviceStateValue;
     if (idx >= 0) values[idx] = normalized;
     else values.push(normalized);
     deviceStates = { ...deviceStates, [key]: values };
   }
 
-  function consumeQualityEvent(payload: Record<string, any>): void {
-    const key = `${payload.provider_id}/${payload.device_id}`;
+  function consumeQualityEvent(payload: UnknownRecord): void {
+    const providerId = typeof payload.provider_id === "string" ? payload.provider_id : "";
+    const deviceId = typeof payload.device_id === "string" ? payload.device_id : "";
+    const signalId = typeof payload.signal_id === "string" ? payload.signal_id : "";
+    if (!providerId || !deviceId || !signalId) return;
+    const key = `${providerId}/${deviceId}`;
     const values = deviceStates[key];
     if (!values) return;
     const updated = values.map((e) =>
-      e.signal_id === payload.signal_id ? { ...e, quality: payload.new_quality } : e,
+      e.signal_id === signalId ? { ...e, quality: payload.new_quality as string } : e,
     );
     deviceStates = { ...deviceStates, [key]: updated };
   }
 
-  function consumeModeChangeEvent(payload: Record<string, any>): void {
+  function consumeModeChangeEvent(payload: UnknownRecord): void {
     const m = typeof payload.new_mode === "string" ? payload.new_mode : "UNKNOWN";
     mode = m;
     modeBadgeClass = "ok";
     if (!modeSelectorDirty) modeSelectorValue = m;
   }
 
-  function consumeBtErrorEvent(payload: Record<string, any>): void {
+  function consumeBtErrorEvent(payload: UnknownRecord): void {
+    const errorText =
+      typeof payload.error === "string" && payload.error.trim() !== ""
+        ? payload.error
+        : "Unknown behavior-tree error";
     if (!automationStatus) {
       automationStatus = {
         enabled: true,
@@ -509,7 +545,7 @@
         last_tick_ms: Number(payload.timestamp_ms) || 0,
         ticks_since_progress: 0,
         total_ticks: 0,
-        last_error: String(payload.error || "Unknown behavior-tree error"),
+        last_error: errorText,
         error_count: 1,
         current_tree: "",
       };
@@ -517,23 +553,24 @@
       automationStatus = {
         ...automationStatus,
         bt_status: "ERROR",
-        last_error: String(payload.error || "Unknown BT error"),
+        last_error: errorText,
         error_count: (automationStatus.error_count || 0) + 1,
       };
     }
   }
 
   // ── Formatters ────────────────────────────────────────────────────────────
-  function formatValue(v: any): string {
+  function formatValue(v: unknown): string {
     if (v === null || v === undefined) return "--";
     if (typeof v === "object") {
-      if (typeof v.type === "string") {
-        if (v.type === "double" && v.double !== undefined) return String(v.double);
-        if (v.type === "int64" && v.int64 !== undefined) return String(v.int64);
-        if (v.type === "uint64" && v.uint64 !== undefined) return String(v.uint64);
-        if (v.type === "bool" && v.bool !== undefined) return v.bool ? "true" : "false";
-        if (v.type === "string" && v.string !== undefined) return String(v.string);
-        if (v.type === "bytes" && v.base64 !== undefined) return String(v.base64);
+      const value = v as UnknownRecord;
+      if (typeof value.type === "string") {
+        if (value.type === "double" && value.double !== undefined) return String(value.double);
+        if (value.type === "int64" && value.int64 !== undefined) return String(value.int64);
+        if (value.type === "uint64" && value.uint64 !== undefined) return String(value.uint64);
+        if (value.type === "bool" && value.bool !== undefined) return value.bool ? "true" : "false";
+        if (value.type === "string" && value.string !== undefined) return String(value.string);
+        if (value.type === "bytes" && value.base64 !== undefined) return String(value.base64);
       }
       return JSON.stringify(v);
     }
@@ -553,14 +590,14 @@
   }
 
   // Function form state keyed by deviceKey:functionId
-  let funcFormData = $state<Record<string, Record<string, any>>>({});
-  function getFuncFormKey(deviceKey: string, func: any): string {
+  let funcFormData = $state<Record<string, Record<string, unknown>>>({});
+  function getFuncFormKey(deviceKey: string, func: FunctionSpec): string {
     return `${deviceKey}:${func.function_id}`;
   }
-  function getFuncFormData(deviceKey: string, func: any): Record<string, any> {
+  function getFuncFormData(deviceKey: string, func: FunctionSpec): Record<string, unknown> {
     return funcFormData[getFuncFormKey(deviceKey, func)] ?? {};
   }
-  function setFuncArg(deviceKey: string, func: any, argIdx: number, value: any): void {
+  function setFuncArg(deviceKey: string, func: FunctionSpec, argIdx: number, value: unknown): void {
     const k = getFuncFormKey(deviceKey, func);
     funcFormData = {
       ...funcFormData,
@@ -599,8 +636,8 @@
         <span>Current: <span class="badge {modeBadgeClass}">{mode}</span></span>
         <select
           value={modeSelectorValue}
-          onchange={(e: any) => {
-            modeSelectorValue = e.target.value;
+          onchange={(e: Event) => {
+            modeSelectorValue = selectTarget(e).value;
             modeSelectorDirty = true;
           }}
         >
@@ -678,9 +715,7 @@
         {:else}
           {#each providerHealth as entry (entry.provider_id)}
             {@const pid = typeof entry?.provider_id === "string" ? entry.provider_id : "unknown"}
-            {@const q = normalizeProviderHealthQuality(
-              entry?.health?.quality || entry?.state || "UNKNOWN",
-            )}
+            {@const q = normalizeProviderHealthQuality(entry?.state || "UNKNOWN")}
             {@const lc = typeof entry?.lifecycle_state === "string" ? entry.lifecycle_state : "--"}
             {@const dc = Number.isFinite(Number(entry?.device_count))
               ? Number(entry.device_count)
@@ -746,8 +781,8 @@
                     <td>{formatValue(sig.value)}</td>
                     <td>{sig.quality ?? "--"}</td>
                     <td
-                      >{sig.timestamp_ms > 0
-                        ? new Date(sig.timestamp_ms).toLocaleTimeString()
+                      >{(sig.timestamp_ms ?? 0) > 0
+                        ? new Date(sig.timestamp_ms ?? 0).toLocaleTimeString()
                         : "--"}</td
                     >
                   </tr>
@@ -767,7 +802,7 @@
                   <p class="function-description">{func.description}</p>
                 {/if}
                 <form
-                  onsubmit={(e: any) => {
+                  onsubmit={(e: Event) => {
                     e.preventDefault();
                     void callFunction(selectedKey, func, getFuncFormData(selectedKey, func));
                   }}
@@ -785,7 +820,8 @@
                           id="fn-{fbKey}-{ai}"
                           type="checkbox"
                           checked={Boolean(getFuncFormData(selectedKey, func)[`arg_${ai}`])}
-                          onchange={(e: any) => setFuncArg(selectedKey, func, ai, e.target.checked)}
+                          onchange={(e: Event) =>
+                            setFuncArg(selectedKey, func, ai, inputTarget(e).checked)}
                         />
                       {:else if arg.type === "double"}
                         <input
@@ -793,7 +829,8 @@
                           type="number"
                           step="any"
                           value={getFuncFormData(selectedKey, func)[`arg_${ai}`] ?? ""}
-                          oninput={(e: any) => setFuncArg(selectedKey, func, ai, e.target.value)}
+                          oninput={(e: Event) =>
+                            setFuncArg(selectedKey, func, ai, inputTarget(e).value)}
                         />
                       {:else}
                         <input
@@ -804,7 +841,8 @@
                             : "text"}
                           placeholder={arg.type === "bytes" ? "Base64 encoded" : ""}
                           value={getFuncFormData(selectedKey, func)[`arg_${ai}`] ?? ""}
-                          oninput={(e: any) => setFuncArg(selectedKey, func, ai, e.target.value)}
+                          oninput={(e: Event) =>
+                            setFuncArg(selectedKey, func, ai, inputTarget(e).value)}
                         />
                       {/if}
                     </div>
@@ -850,7 +888,7 @@
                   {#if ptype === "bool"}
                     <select
                       value={getParamInput(param.name) || String(param.value).toLowerCase()}
-                      onchange={(e: any) => setParamInput(param.name, e.target.value)}
+                      onchange={(e: Event) => setParamInput(param.name, selectTarget(e).value)}
                     >
                       <option value="true">true</option>
                       <option value="false">false</option>
@@ -858,7 +896,7 @@
                   {:else if ptype === "string" && Array.isArray(param.allowed_values) && param.allowed_values.length > 0}
                     <select
                       value={getParamInput(param.name) || String(param.value)}
-                      onchange={(e: any) => setParamInput(param.name, e.target.value)}
+                      onchange={(e: Event) => setParamInput(param.name, selectTarget(e).value)}
                     >
                       {#each param.allowed_values as av (av)}
                         <option value={String(av)}>{String(av)}</option>
@@ -870,14 +908,14 @@
                       step="any"
                       placeholder="New value"
                       value={getParamInput(param.name)}
-                      oninput={(e: any) => setParamInput(param.name, e.target.value)}
+                      oninput={(e: Event) => setParamInput(param.name, inputTarget(e).value)}
                     />
                   {:else}
                     <input
                       type="text"
                       placeholder="New value"
                       value={getParamInput(param.name)}
-                      oninput={(e: any) => setParamInput(param.name, e.target.value)}
+                      oninput={(e: Event) => setParamInput(param.name, inputTarget(e).value)}
                     />
                   {/if}
                   <button

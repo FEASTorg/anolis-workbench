@@ -1,5 +1,7 @@
 // operate-events.ts — SSE stream manager and event utilities for Operate workspace
 
+import type { UnknownRecord } from "./contracts";
+
 export const DEFAULT_SSE_EVENT_TYPES = [
   "state_update",
   "quality_change",
@@ -22,12 +24,12 @@ export type OperateTraceEvent = {
   type: string;
   timestamp_ms: number;
   details: string;
-  payload: Record<string, any> | null;
+  payload: UnknownRecord | null;
 };
 
 export type OperateEventStreamOptions = {
   url?: string;
-  onEvent?: (eventType: string, payload: Record<string, any>) => void;
+  onEvent?: (eventType: string, payload: UnknownRecord) => void;
   onConnectionStatus?: (status: OperateConnectionStatus) => void;
   onParseError?: (error: unknown, context: string) => void;
   eventTypes?: readonly string[];
@@ -49,7 +51,7 @@ export function appendEventTrace<T>(buffer: T[], event: T, maxEntries = 100): T[
   return buffer;
 }
 
-export function describeEvent(eventType: string, payload: Record<string, any> | null): string {
+export function describeEvent(eventType: string, payload: UnknownRecord | null): string {
   if (!payload || typeof payload !== "object") return eventType;
   if (eventType === "mode_change")
     return `${payload.previous_mode ?? "?"} -> ${payload.new_mode ?? "?"}`;
@@ -75,7 +77,7 @@ export function describeEvent(eventType: string, payload: Record<string, any> | 
 
 export function buildTraceEvent(
   eventType: string,
-  payload: Record<string, any> | null,
+  payload: UnknownRecord | null,
   nowMs = Date.now(),
 ): OperateTraceEvent {
   const tsRaw = Number(payload?.timestamp_ms);
@@ -201,8 +203,11 @@ export function createOperateEventStreamManager(
       source.addEventListener(et, (event: MessageEvent<string>) => {
         try {
           touchEvent();
-          const payload = JSON.parse(event.data) as Record<string, any>;
-          onEvent(et, payload);
+          const parsed = JSON.parse(event.data) as unknown;
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("Event payload is not an object");
+          }
+          onEvent(et, parsed as UnknownRecord);
         } catch (err) {
           onParseError(err, et);
         }

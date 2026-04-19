@@ -5,12 +5,17 @@
   import Commission from "./routes/Commission.svelte";
   import Operate from "./routes/Operate.svelte";
   import { fetchJson } from "./lib/api";
+  import type {
+    ProjectSummary,
+    ProviderCatalog,
+    RuntimeStatus,
+    SystemConfig,
+    TemplateSummary,
+  } from "./lib/contracts";
   import { describeCrossProjectRunningBanner, evaluateNavigationPrompts } from "./lib/guards";
 
   type WorkspaceName = "compose" | "commission" | "operate";
   type Route = { path: string; project: string | null; workspace: WorkspaceName | null };
-  type TemplateEntry = { id: string; meta?: { name?: string } };
-  type ProjectEntry = { name: string };
   type NavigateOptions = {
     replaceHistory?: boolean;
     historyAlreadySet?: boolean;
@@ -19,12 +24,12 @@
   const WORKSPACES: WorkspaceName[] = ["compose", "commission", "operate"];
 
   // ── State ────────────────────────────────────────────────────────────────
-  let catalog = $state<Record<string, any> | null>(null);
-  let templates = $state<TemplateEntry[]>([]);
-  let projects = $state<ProjectEntry[]>([]);
-  let runtimeStatus = $state<Record<string, any>>({});
+  let catalog = $state<ProviderCatalog | null>(null);
+  let templates = $state<TemplateSummary[]>([]);
+  let projects = $state<ProjectSummary[]>([]);
+  let runtimeStatus = $state<RuntimeStatus | null>(null);
   let projectName = $state<string | null>(null);
-  let system = $state<Record<string, any> | null>(null);
+  let system = $state<SystemConfig | null>(null);
   let workspace = $state<WorkspaceName | null>(null);
   let dirty = $state<boolean>(false);
   let currentPath = $state<string>("/");
@@ -129,7 +134,7 @@
 
   async function loadProject(name: string): Promise<boolean> {
     try {
-      system = await fetchJson(`/api/projects/${encodeURIComponent(name)}`);
+      system = await fetchJson<SystemConfig>(`/api/projects/${encodeURIComponent(name)}`);
       projectName = name;
       return true;
     } catch {
@@ -139,12 +144,12 @@
 
   async function refreshStatus(): Promise<void> {
     try {
-      const status = await fetchJson<Record<string, any>>("/api/status");
+      const status = await fetchJson<RuntimeStatus>("/api/status");
       runtimeStatus = status;
       const operatorUiBase = status?.composer?.operator_ui_base;
       if (typeof operatorUiBase === "string" && operatorUiBase.trim()) {
-        (window as any).__ANOLIS_COMPOSER__ = {
-          ...(((window as any).__ANOLIS_COMPOSER__ ?? {}) as Record<string, any>),
+        window.__ANOLIS_COMPOSER__ = {
+          ...(window.__ANOLIS_COMPOSER__ ?? {}),
           operatorUiBase: operatorUiBase.trim(),
         };
       }
@@ -179,17 +184,17 @@
 
     const init = async (): Promise<void> => {
       await Promise.all([
-        fetchJson<Record<string, any>>("/api/catalog")
+        fetchJson<ProviderCatalog>("/api/catalog")
           .then((c) => {
             catalog = c;
           })
           .catch(() => {}),
-        fetchJson<TemplateEntry[]>("/api/templates")
+        fetchJson<TemplateSummary[]>("/api/templates")
           .then((t) => {
             templates = t;
           })
           .catch(() => {}),
-        fetchJson<ProjectEntry[]>("/api/projects")
+        fetchJson<ProjectSummary[]>("/api/projects")
           .then((p) => {
             projects = p;
           })
@@ -214,8 +219,8 @@
   });
 
   // ── UI event handlers ─────────────────────────────────────────────────────
-  function onProjectSelect(event: any): void {
-    const selected = String(event.target.value ?? "");
+  function onProjectSelect(event: Event): void {
+    const selected = String((event.currentTarget as HTMLSelectElement).value ?? "");
     if (!selected) {
       void navigateTo("/");
       return;
@@ -230,7 +235,7 @@
   }
 
   async function onProjectsRefreshed(): Promise<void> {
-    projects = await fetchJson("/api/projects").catch(() => projects);
+    projects = await fetchJson<ProjectSummary[]>("/api/projects").catch(() => projects);
   }
 </script>
 
@@ -300,13 +305,10 @@
       onSaved={() => {
         dirty = false;
       }}
-      onSystemChanged={(s) => {
-        system = s;
-      }}
     />
   {:else if workspace === "commission"}
     <Commission {projectName} {system} {runtimeStatus} {commissionRunningForCurrent} />
   {:else if workspace === "operate"}
-    <Operate {projectName} {system} {runtimeStatus} />
+    <Operate {projectName} {runtimeStatus} />
   {/if}
 </main>

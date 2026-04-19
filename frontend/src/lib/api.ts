@@ -5,10 +5,10 @@
  * @param path Request path
  * @param options Fetch options
  */
-export async function fetchJson<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+export async function fetchJson<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, options);
   const text = await response.text();
-  let data: any = {};
+  let data: unknown = {};
   if (text) {
     try {
       data = JSON.parse(text);
@@ -18,7 +18,11 @@ export async function fetchJson<T = any>(path: string, options: RequestInit = {}
     }
   }
   if (!response.ok) {
-    const message = data?.error ?? `HTTP ${response.status}`;
+    const errObj = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+    const message =
+      typeof errObj?.error === "string" && errObj.error.trim() !== ""
+        ? errObj.error
+        : `HTTP ${response.status}`;
     throw new Error(message);
   }
   return data as T;

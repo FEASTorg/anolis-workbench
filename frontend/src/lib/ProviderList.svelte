@@ -1,9 +1,49 @@
 <script lang="ts">
+  import type {
+    ProviderCatalog,
+    ProviderCatalogEntry,
+    ProviderPaths,
+    ProviderRuntimeEntry,
+    SystemConfig,
+    UnknownRecord,
+  } from "./contracts";
+
   /**
    * ProviderList.svelte — provider list with add/remove/kind-switch.
    * Mutates system.topology.runtime.providers, system.topology.providers, system.paths.providers.
    */
-  let { system, catalog, onChanged } = $props();
+  type ProviderDevice = UnknownRecord & {
+    id: string;
+    type: string;
+    address?: string;
+  };
+
+  type ProviderConfig = UnknownRecord & {
+    kind?: string;
+    startup_policy?: string;
+    simulation_mode?: string;
+    tick_rate_hz?: number;
+    provider_name?: string;
+    require_live_session?: boolean;
+    query_delay_us?: number;
+    timeout_ms?: number;
+    retry_count?: number;
+    discovery?: {
+      mode?: string;
+      addresses?: string[];
+    };
+    devices?: ProviderDevice[];
+  };
+
+  let {
+    system,
+    catalog,
+    onChanged,
+  }: {
+    system: SystemConfig;
+    catalog: ProviderCatalog | null;
+    onChanged: () => void;
+  } = $props();
 
   const SUPPORTED_KINDS = ["sim", "bread", "ezo"];
   const HEX_RE = /^0x[0-9a-fA-F]{2}$/;
@@ -37,12 +77,21 @@
     { type: "hum", display: "Humidity" },
   ];
 
-  const kindMap = $derived(Object.fromEntries((catalog?.providers ?? []).map((p) => [p.kind, p])));
-  const providers = $derived(system?.topology?.runtime?.providers ?? []);
+  const kindMap = $derived(
+    Object.fromEntries((catalog?.providers ?? []).map((p) => [p.kind, p])) as Record<
+      string,
+      ProviderCatalogEntry
+    >,
+  );
+  const providers = $derived((system?.topology?.runtime?.providers ?? []) as ProviderRuntimeEntry[]);
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  function genId(kind) {
+  function inputTarget(event: Event): HTMLInputElement {
+    return event.currentTarget as HTMLInputElement;
+  }
+
+  function genId(kind: string): string {
     const existing = (system.topology.runtime.providers ?? [])
       .filter((p) => p.id.startsWith(kind))
       .map((p) => parseInt(p.id.slice(kind.length), 10))
@@ -51,7 +100,7 @@
     return `${kind}${next}`;
   }
 
-  function defaultTopology(kind) {
+  function defaultTopology(kind: string): ProviderConfig {
     switch (kind) {
       case "sim":
         return {
@@ -86,7 +135,7 @@
     }
   }
 
-  function defaultPaths(kind) {
+  function defaultPaths(kind: string): ProviderPaths {
     return kind === "bread" || kind === "ezo"
       ? { executable: "", bus_path: "" }
       : { executable: "" };
@@ -113,16 +162,15 @@
     onChanged();
   }
 
-  function removeProvider(id) {
-    system.topology.runtime.providers = system.topology.runtime.providers.filter(
-      (p) => p.id !== id,
-    );
+  function removeProvider(id: string): void {
+    const runtimeProviders = system.topology.runtime.providers ?? [];
+    system.topology.runtime.providers = runtimeProviders.filter((p) => p.id !== id);
     delete system.topology.providers?.[id];
     if (system.paths.providers) delete system.paths.providers[id];
     onChanged();
   }
 
-  function renameId(oldId, newId) {
+  function renameId(oldId: string, newId: string): void {
     if (system.topology.providers?.[oldId] !== undefined) {
       system.topology.providers[newId] = system.topology.providers[oldId];
       delete system.topology.providers[oldId];
@@ -133,7 +181,7 @@
     }
   }
 
-  function changeKind(provEntry, newKind) {
+  function changeKind(provEntry: ProviderRuntimeEntry, newKind: string): void {
     const id = provEntry.id;
     provEntry.kind = newKind;
     system.topology.providers = system.topology.providers ?? {};
@@ -143,12 +191,14 @@
     onChanged();
   }
 
-  function syncBreadAddresses(cfg) {
+  function syncBreadAddresses(cfg: ProviderConfig): void {
     cfg.discovery = cfg.discovery ?? { mode: "manual", addresses: [] };
-    cfg.discovery.addresses = (cfg.devices ?? []).map((d) => d.address).filter(Boolean);
+    cfg.discovery.addresses = (cfg.devices ?? [])
+      .map((d) => d.address)
+      .filter((addr): addr is string => typeof addr === "string" && addr !== "");
   }
 
-  function nextDeviceId(devices, prefix) {
+  function nextDeviceId(devices: ProviderDevice[], prefix: string): string {
     const nums = devices
       .filter((d) => d.id.startsWith(prefix))
       .map((d) => parseInt(d.id.slice(prefix.length), 10))
@@ -157,21 +207,21 @@
   }
 
   // Bus path note helper
-  function busNoteClass(busPath) {
+  function busNoteClass(busPath: string | undefined): string {
     if (!busPath) return "";
     return busPath.startsWith("mock://") ? "bus-note note-success" : "bus-note note-warning";
   }
-  function busNoteText(busPath) {
+  function busNoteText(busPath: string | undefined): string {
     if (!busPath) return "";
     return busPath.startsWith("mock://")
       ? "Mock bus mode — no hardware required."
       : "Live hardware path — requires the bus to be connected.";
   }
 
-  function formatBackoff(v) {
+  function formatBackoff(v: unknown): string {
     return Array.isArray(v) ? v.join(", ") : "";
   }
-  function parseBackoff(s) {
+  function parseBackoff(s: string): number[] {
     return String(s)
       .split(",")
       .map((p) => p.trim())
@@ -188,8 +238,8 @@
     {#each providers as prov (prov.id)}
       {@const id = prov.id}
       {@const isSupported = SUPPORTED_KINDS.includes(prov.kind)}
-      {@const cfg = system?.topology?.providers?.[id] ?? {}}
-      {@const provPaths = system?.paths?.providers?.[id] ?? {}}
+      {@const cfg = (system?.topology?.providers?.[id] ?? {}) as ProviderConfig}
+      {@const provPaths = (system?.paths?.providers?.[id] ?? {}) as ProviderPaths}
 
       <div class="provider-row">
         <!-- Header: id, kind, remove -->
@@ -200,14 +250,14 @@
             spellcheck="false"
             title="Provider ID"
             value={id}
-            onblur={(e: any) => {
-              const newId = e.target.value.trim();
+            onblur={(e: Event) => {
+              const newId = inputTarget(e).value.trim();
               if (!newId || newId === id) {
-                e.target.value = id;
+                inputTarget(e).value = id;
                 return;
               }
               if (providers.some((p) => p.id === newId)) {
-                e.target.value = id;
+                inputTarget(e).value = id;
                 alert(`Provider ID "${newId}" is already in use.`);
                 return;
               }
@@ -221,7 +271,7 @@
             class="provider-kind-select"
             value={prov.kind}
             disabled={!isSupported}
-            onchange={(e: any) => changeKind(prov, e.target.value)}
+            onchange={(e: Event) => changeKind(prov, inputTarget(e).value)}
           >
             {#if !isSupported}
               <option value={prov.kind}>Unsupported ({prov.kind})</option>
@@ -253,8 +303,8 @@
                 min="100"
                 max="120000"
                 value={prov[key] ?? ""}
-                onchange={(e: any) => {
-                  const n = Number(e.target.value);
+                onchange={(e: Event) => {
+                  const n = Number(inputTarget(e).value);
                   if (!isNaN(n)) {
                     prov[key] = n;
                     onChanged();
@@ -272,10 +322,10 @@
             <input
               type="checkbox"
               checked={prov.restart_policy?.enabled ?? false}
-              onchange={(e: any) => {
+              onchange={(e: Event) => {
                 prov.restart_policy = prov.restart_policy ?? {};
-                prov.restart_policy.enabled = e.target.checked;
-                if (e.target.checked) {
+                prov.restart_policy.enabled = inputTarget(e).checked;
+                if (inputTarget(e).checked) {
                   prov.restart_policy.max_attempts = prov.restart_policy.max_attempts ?? 3;
                   prov.restart_policy.backoff_ms = Array.isArray(prov.restart_policy.backoff_ms)
                     ? prov.restart_policy.backoff_ms
@@ -295,10 +345,11 @@
                   type="number"
                   min="0"
                   value={prov.restart_policy.max_attempts ?? 3}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
-                      prov.restart_policy.max_attempts = n;
+                      const rp = prov.restart_policy ?? (prov.restart_policy = {});
+                      rp.max_attempts = n;
                       onChanged();
                     }
                   }}
@@ -312,8 +363,9 @@
                   style="font-family:monospace"
                   placeholder="200, 500, 1000"
                   value={formatBackoff(prov.restart_policy.backoff_ms)}
-                  onchange={(e: any) => {
-                    prov.restart_policy.backoff_ms = parseBackoff(e.target.value);
+                  onchange={(e: Event) => {
+                    const rp = prov.restart_policy ?? (prov.restart_policy = {});
+                    rp.backoff_ms = parseBackoff(inputTarget(e).value);
                     onChanged();
                   }}
                 />
@@ -324,10 +376,11 @@
                   type="number"
                   min="0"
                   value={prov.restart_policy.timeout_ms ?? 30000}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
-                      prov.restart_policy.timeout_ms = n;
+                      const rp = prov.restart_policy ?? (prov.restart_policy = {});
+                      rp.timeout_ms = n;
                       onChanged();
                     }
                   }}
@@ -339,13 +392,14 @@
                   type="number"
                   min="0"
                   value={prov.restart_policy.success_reset_ms ?? ""}
-                  onchange={(e: any) => {
-                    const v = e.target.value.trim();
+                  onchange={(e: Event) => {
+                    const rp = prov.restart_policy ?? (prov.restart_policy = {});
+                    const v = inputTarget(e).value.trim();
                     if (v === "") {
-                      delete prov.restart_policy.success_reset_ms;
+                      delete rp.success_reset_ms;
                     } else {
                       const n = Number(v);
-                      if (!isNaN(n)) prov.restart_policy.success_reset_ms = n;
+                      if (!isNaN(n)) rp.success_reset_ms = n;
                     }
                     onChanged();
                   }}
@@ -364,10 +418,10 @@
             spellcheck="false"
             style="font-family:monospace"
             value={provPaths.executable ?? ""}
-            oninput={(e: any) => {
+            oninput={(e: Event) => {
               system.paths.providers = system.paths.providers ?? {};
               system.paths.providers[id] = system.paths.providers[id] ?? {};
-              system.paths.providers[id].executable = e.target.value;
+              system.paths.providers[id].executable = inputTarget(e).value;
               onChanged();
             }}
           />
@@ -383,10 +437,10 @@
               style="font-family:monospace"
               placeholder="/dev/i2c-1 or mock://name"
               value={provPaths.bus_path ?? ""}
-              oninput={(e: any) => {
+              oninput={(e: Event) => {
                 system.paths.providers = system.paths.providers ?? {};
                 system.paths.providers[id] = system.paths.providers[id] ?? {};
-                system.paths.providers[id].bus_path = e.target.value;
+                system.paths.providers[id].bus_path = inputTarget(e).value;
                 onChanged();
               }}
             />
@@ -406,8 +460,8 @@
                 <label>Startup policy</label>
                 <select
                   value={cfg.startup_policy ?? "degraded"}
-                  onchange={(e: any) => {
-                    cfg.startup_policy = e.target.value;
+                  onchange={(e: Event) => {
+                    cfg.startup_policy = inputTarget(e).value;
                     onChanged();
                   }}
                 >
@@ -427,8 +481,8 @@
                   <label>Simulation mode</label>
                   <select
                     value={cfg.simulation_mode ?? "non_interacting"}
-                    onchange={(e: any) => {
-                      cfg.simulation_mode = e.target.value;
+                    onchange={(e: Event) => {
+                      cfg.simulation_mode = inputTarget(e).value;
                       onChanged();
                     }}
                   >
@@ -444,8 +498,8 @@
                       min="1"
                       max="100"
                       value={cfg.tick_rate_hz ?? 10.0}
-                      onchange={(e: any) => {
-                        const n = Number(e.target.value);
+                      onchange={(e: Event) => {
+                        const n = Number(inputTarget(e).value);
                         if (!isNaN(n)) {
                           cfg.tick_rate_hz = n;
                           onChanged();
@@ -467,14 +521,14 @@
                         class="device-id-input"
                         spellcheck="false"
                         value={dev.id}
-                        onblur={(e: any) => {
-                          const v = e.target.value.trim();
+                        onblur={(e: Event) => {
+                          const v = inputTarget(e).value.trim();
                           if (!v) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             return;
                           }
                           if ((cfg.devices ?? []).some((d, i) => d.id === v && i !== di)) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             alert(`Device ID "${v}" is already in use.`);
                             return;
                           }
@@ -485,10 +539,10 @@
                       <select
                         class="device-type-select"
                         value={dev.type}
-                        onchange={(e: any) => {
+                        onchange={(e: Event) => {
                           const old = SIM_DEVICE_TYPES.find((d) => d.type === dev.type);
                           if (old) old.fields.forEach((f) => delete dev[f.key]);
-                          dev.type = e.target.value;
+                          dev.type = inputTarget(e).value;
                           const neo = SIM_DEVICE_TYPES.find((d) => d.type === dev.type);
                           if (neo)
                             neo.fields.forEach((f) => {
@@ -505,6 +559,7 @@
                         type="button"
                         class="btn-remove-device"
                         onclick={() => {
+                          cfg.devices = cfg.devices ?? [];
                           cfg.devices.splice(di, 1);
                           onChanged();
                         }}>✕</button
@@ -515,8 +570,8 @@
                           <input
                             type="number"
                             value={dev[f.key] ?? f.default}
-                            onchange={(e: any) => {
-                              const n = Number(e.target.value);
+                            onchange={(e: Event) => {
+                              const n = Number(inputTarget(e).value);
                               if (!isNaN(n)) {
                                 dev[f.key] = n;
                                 onChanged();
@@ -550,8 +605,8 @@
                   type="text"
                   spellcheck="false"
                   value={cfg.provider_name ?? ""}
-                  oninput={(e: any) => {
-                    cfg.provider_name = e.target.value;
+                  oninput={(e: Event) => {
+                    cfg.provider_name = inputTarget(e).value;
                     onChanged();
                   }}
                 />
@@ -561,8 +616,8 @@
                   <input
                     type="checkbox"
                     checked={cfg.require_live_session ?? false}
-                    onchange={(e: any) => {
-                      cfg.require_live_session = e.target.checked;
+                    onchange={(e: Event) => {
+                      cfg.require_live_session = inputTarget(e).checked;
                       onChanged();
                     }}
                   />
@@ -576,8 +631,8 @@
                   min="0"
                   max="1000000"
                   value={cfg.query_delay_us ?? 10000}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.query_delay_us = n;
                       onChanged();
@@ -592,8 +647,8 @@
                   min="1"
                   max="60000"
                   value={cfg.timeout_ms ?? 100}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.timeout_ms = n;
                       onChanged();
@@ -608,8 +663,8 @@
                   min="0"
                   max="20"
                   value={cfg.retry_count ?? 2}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.retry_count = n;
                       onChanged();
@@ -628,14 +683,14 @@
                         class="device-id-input"
                         spellcheck="false"
                         value={dev.id}
-                        onblur={(e: any) => {
-                          const v = e.target.value.trim();
+                        onblur={(e: Event) => {
+                          const v = inputTarget(e).value.trim();
                           if (!v) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             return;
                           }
                           if ((cfg.devices ?? []).some((d, i) => d.id === v && i !== di)) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             alert(`Device ID "${v}" is already in use.`);
                             return;
                           }
@@ -646,8 +701,8 @@
                       <select
                         class="device-type-select"
                         value={dev.type}
-                        onchange={(e: any) => {
-                          dev.type = e.target.value;
+                        onchange={(e: Event) => {
+                          dev.type = inputTarget(e).value;
                           onChanged();
                         }}
                       >
@@ -662,12 +717,12 @@
                         spellcheck="false"
                         placeholder="0x0A"
                         value={dev.address ?? ""}
-                        onblur={(e: any) => {
-                          const v = e.target.value.trim();
+                        onblur={(e: Event) => {
+                          const v = inputTarget(e).value.trim();
                           if (!HEX_RE.test(v)) {
-                            e.target.classList.add("input-error");
+                            inputTarget(e).classList.add("input-error");
                           } else {
-                            e.target.classList.remove("input-error");
+                            inputTarget(e).classList.remove("input-error");
                             dev.address = v;
                             syncBreadAddresses(cfg);
                             onChanged();
@@ -678,6 +733,7 @@
                         type="button"
                         class="btn-remove-device"
                         onclick={() => {
+                          cfg.devices = cfg.devices ?? [];
                           cfg.devices.splice(di, 1);
                           syncBreadAddresses(cfg);
                           onChanged();
@@ -706,8 +762,8 @@
                   type="text"
                   spellcheck="false"
                   value={cfg.provider_name ?? ""}
-                  oninput={(e: any) => {
-                    cfg.provider_name = e.target.value;
+                  oninput={(e: Event) => {
+                    cfg.provider_name = inputTarget(e).value;
                     onChanged();
                   }}
                 />
@@ -719,8 +775,8 @@
                   min="0"
                   max="2000000"
                   value={cfg.query_delay_us ?? 300000}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.query_delay_us = n;
                       onChanged();
@@ -735,8 +791,8 @@
                   min="1"
                   max="60000"
                   value={cfg.timeout_ms ?? 300}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.timeout_ms = n;
                       onChanged();
@@ -751,8 +807,8 @@
                   min="0"
                   max="20"
                   value={cfg.retry_count ?? 2}
-                  onchange={(e: any) => {
-                    const n = Number(e.target.value);
+                  onchange={(e: Event) => {
+                    const n = Number(inputTarget(e).value);
                     if (!isNaN(n)) {
                       cfg.retry_count = n;
                       onChanged();
@@ -770,14 +826,14 @@
                         class="device-id-input"
                         spellcheck="false"
                         value={dev.id}
-                        onblur={(e: any) => {
-                          const v = e.target.value.trim();
+                        onblur={(e: Event) => {
+                          const v = inputTarget(e).value.trim();
                           if (!v) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             return;
                           }
                           if ((cfg.devices ?? []).some((d, i) => d.id === v && i !== di)) {
-                            e.target.value = dev.id;
+                            inputTarget(e).value = dev.id;
                             alert(`Device ID "${v}" is already in use.`);
                             return;
                           }
@@ -788,8 +844,8 @@
                       <select
                         class="device-type-select"
                         value={dev.type}
-                        onchange={(e: any) => {
-                          dev.type = e.target.value;
+                        onchange={(e: Event) => {
+                          dev.type = inputTarget(e).value;
                           onChanged();
                         }}
                       >
@@ -803,12 +859,12 @@
                         spellcheck="false"
                         placeholder="0x63"
                         value={dev.address ?? ""}
-                        onblur={(e: any) => {
-                          const v = e.target.value.trim();
+                        onblur={(e: Event) => {
+                          const v = inputTarget(e).value.trim();
                           if (!HEX_RE.test(v)) {
-                            e.target.classList.add("input-error");
+                            inputTarget(e).classList.add("input-error");
                           } else {
-                            e.target.classList.remove("input-error");
+                            inputTarget(e).classList.remove("input-error");
                             dev.address = v;
                             onChanged();
                           }
@@ -818,6 +874,7 @@
                         type="button"
                         class="btn-remove-device"
                         onclick={() => {
+                          cfg.devices = cfg.devices ?? [];
                           cfg.devices.splice(di, 1);
                           onChanged();
                         }}>✕</button

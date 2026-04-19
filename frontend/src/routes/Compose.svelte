@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ProviderCatalog, RuntimeStatus, SystemConfig } from "../lib/contracts";
   import RuntimeForm from "../lib/RuntimeForm.svelte";
   import ProviderList from "../lib/ProviderList.svelte";
 
@@ -9,15 +10,13 @@
     runtimeStatus,
     onDirty,
     onSaved,
-    onSystemChanged,
   }: {
     projectName: string | null;
-    system: Record<string, any> | null;
-    catalog: Record<string, any> | null;
-    runtimeStatus: Record<string, any>;
+    system: SystemConfig | null;
+    catalog: ProviderCatalog | null;
+    runtimeStatus: RuntimeStatus | null;
     onDirty: () => void;
     onSaved: () => void;
-    onSystemChanged: (next: Record<string, any> | null) => void;
   } = $props();
 
   const running = $derived(Boolean(runtimeStatus?.running));

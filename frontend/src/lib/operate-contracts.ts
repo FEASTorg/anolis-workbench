@@ -1,6 +1,17 @@
 // operate-contracts.ts — data extraction / normalization for the Operate workspace
 
-type AnyRecord = Record<string, any>;
+import type {
+  AutomationStatus,
+  Device,
+  DeviceCapabilities,
+  DeviceStateValue,
+  FunctionArgSpec,
+  FunctionSpec,
+  ParameterDefinition,
+  ProviderHealth,
+  RuntimeApiStatus,
+  UnknownRecord,
+} from "./contracts";
 
 type ParameterType = "double" | "int64" | "bool" | "string";
 
@@ -12,11 +23,11 @@ export type CoerceParameterValueInput = {
   allowedValues?: Array<string | number>;
 };
 
-function asObject(v: unknown): AnyRecord {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as AnyRecord) : {};
+function asObject(v: unknown): UnknownRecord {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as UnknownRecord) : {};
 }
 
-function asArray<T = any>(v: unknown): T[] {
+function asArray<T = unknown>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
@@ -31,36 +42,36 @@ const INT64_MAX = 9223372036854775807n;
 const JS_SAFE_MIN = BigInt(Number.MIN_SAFE_INTEGER);
 const JS_SAFE_MAX = BigInt(Number.MAX_SAFE_INTEGER);
 
-export function extractDevices(payload: unknown): AnyRecord[] {
-  return asArray(asObject(payload).devices);
+export function extractDevices(payload: unknown): Device[] {
+  return asArray(asObject(payload).devices) as Device[];
 }
 
-export function extractProvidersHealth(payload: unknown): AnyRecord[] {
-  return asArray(asObject(payload).providers);
+export function extractProvidersHealth(payload: unknown): ProviderHealth[] {
+  return asArray(asObject(payload).providers) as ProviderHealth[];
 }
 
-export function extractCapabilities(payload: unknown): AnyRecord {
+export function extractCapabilities(payload: unknown): DeviceCapabilities {
   const root = asObject(payload);
   const caps = asObject(root.capabilities);
   return {
     ...caps,
-    signals: asArray(caps.signals),
+    signals: asArray(caps.signals) as UnknownRecord[],
     functions: normalizeFunctionSpecs(caps.functions),
-  };
+  } as DeviceCapabilities;
 }
 
-export function normalizeFunctionSpecs(functions: unknown): AnyRecord[] {
+export function normalizeFunctionSpecs(functions: unknown): FunctionSpec[] {
   if (!Array.isArray(functions)) return [];
-  return (functions as AnyRecord[])
+  return (functions as UnknownRecord[])
     .map((func, i) => {
-      const functionId = toFinite(func?.function_id) ?? i + 1;
+      const functionId = toFinite(func.function_id) ?? i + 1;
       const name =
-        (typeof func?.name === "string" && func.name.trim()) ||
-        (typeof func?.function_name === "string" && func.function_name.trim()) ||
+        (typeof func.name === "string" && func.name.trim()) ||
+        (typeof func.function_name === "string" && func.function_name.trim()) ||
         `Function ${functionId}`;
       const description =
-        (typeof func?.label === "string" && func.label.trim()) ||
-        (typeof func?.description === "string" && func.description.trim()) ||
+        (typeof func.label === "string" && func.label.trim()) ||
+        (typeof func.description === "string" && func.description.trim()) ||
         "";
       return {
         ...func,
@@ -70,8 +81,8 @@ export function normalizeFunctionSpecs(functions: unknown): AnyRecord[] {
         display_name: name,
         label: description,
         description,
-        args: normalizeFunctionArgs(func?.args),
-      };
+        args: normalizeFunctionArgs(func.args),
+      } as FunctionSpec;
     })
     .sort((a, b) =>
       a.function_id !== b.function_id
@@ -80,41 +91,41 @@ export function normalizeFunctionSpecs(functions: unknown): AnyRecord[] {
     );
 }
 
-export function normalizeFunctionArgs(args: unknown): AnyRecord[] {
+export function normalizeFunctionArgs(args: unknown): FunctionArgSpec[] {
   if (Array.isArray(args)) {
-    return args
+    return (args as UnknownRecord[])
       .map((a, i) => normalizeArgSpec(asObject(a), `arg_${i + 1}`))
       .filter((a) => a.name !== "");
   }
   if (args && typeof args === "object") {
-    return Object.entries(args as AnyRecord)
-      .map(([n, s]) => normalizeArgSpec(asObject(s), n))
+    return Object.entries(args as UnknownRecord)
+      .map(([name, spec]) => normalizeArgSpec(asObject(spec), name))
       .filter((a) => a.name !== "")
       .sort((a, b) => a.name.localeCompare(b.name));
   }
   return [];
 }
 
-export function normalizeArgSpec(arg: AnyRecord, fallback = ""): AnyRecord {
-  const name = (typeof arg?.name === "string" && arg.name.trim()) || fallback;
+export function normalizeArgSpec(arg: UnknownRecord, fallback = ""): FunctionArgSpec {
+  const name = (typeof arg.name === "string" && arg.name.trim()) || fallback;
   if (!name.trim()) return { name: "", type: "string", required: true };
   return {
     name: name.trim(),
-    type: (typeof arg?.type === "string" && arg.type.trim()) || "string",
-    required: arg?.required !== false,
-    min: arg?.min,
-    max: arg?.max,
-    allowed_values: arg?.allowed_values,
+    type: (typeof arg.type === "string" && arg.type.trim()) || "string",
+    required: arg.required !== false,
+    min: arg.min as number | string | undefined,
+    max: arg.max as number | string | undefined,
+    allowed_values: arg.allowed_values as Array<string | number> | undefined,
   };
 }
 
-export function extractDeviceStateValues(payload: unknown): AnyRecord[] {
+export function extractDeviceStateValues(payload: unknown): DeviceStateValue[] {
   return asArray(asObject(payload).values).map((s) => {
     const src = asObject(s);
     return {
       ...src,
       timestamp_ms: toFinite(src.timestamp_ms) ?? toFinite(src.timestamp_epoch_ms) ?? 0,
-    };
+    } as DeviceStateValue;
   });
 }
 
@@ -123,19 +134,19 @@ export function extractMode(payload: unknown): string | null {
   return typeof r.mode === "string" ? r.mode : null;
 }
 
-export function extractRuntimeStatus(payload: unknown): AnyRecord {
+export function extractRuntimeStatus(payload: unknown): RuntimeApiStatus {
   const r = asObject(payload);
   return {
-    status: asObject(r.status),
+    status: asObject(r.status) as RuntimeApiStatus["status"],
     mode: typeof r.mode === "string" ? r.mode : "UNKNOWN",
     uptime_seconds: toFinite(r.uptime_seconds) ?? 0,
     polling_interval_ms: toFinite(r.polling_interval_ms) ?? 0,
     device_count: toFinite(r.device_count) ?? 0,
-    providers: asArray(r.providers),
+    providers: asArray(r.providers) as RuntimeApiStatus["providers"],
   };
 }
 
-export function extractAutomationStatus(payload: unknown): AnyRecord {
+export function extractAutomationStatus(payload: unknown): AutomationStatus {
   const r = asObject(payload);
   return {
     enabled: Boolean(r.enabled),
@@ -160,14 +171,17 @@ export function normalizeParameterType(type: unknown): ParameterType | null {
   return PARAMETER_TYPES.has(t) ? t : null;
 }
 
-export function extractParameters(payload: unknown): AnyRecord[] {
+export function extractParameters(payload: unknown): ParameterDefinition[] {
   return asArray(asObject(payload).parameters)
-    .filter((p) => p && typeof p.name === "string")
-    .map((p) => ({
-      ...p,
-      name: String(p.name).trim(),
-      type: normalizeParameterType(p.type) ?? String(p.type ?? ""),
-    }))
+    .filter((p) => p && typeof (p as UnknownRecord).name === "string")
+    .map((p) => {
+      const record = asObject(p);
+      return {
+        ...record,
+        name: String(record.name).trim(),
+        type: normalizeParameterType(record.type) ?? String(record.type ?? ""),
+      } as ParameterDefinition;
+    })
     .filter((p) => p.name !== "")
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -183,7 +197,7 @@ export function normalizeProviderHealthQuality(
 }
 
 export function deriveOperateAvailability(
-  statusPayload: AnyRecord | null | undefined,
+  statusPayload: UnknownRecord | null | undefined,
   projectName: string,
 ): {
   available: boolean;

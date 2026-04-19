@@ -95,14 +95,14 @@ def test_duplicate_provider_ids():
 
 
 # ---------------------------------------------------------------------------
-# Test: port 3002 collision
+# Test: reserved workbench port collision
 # ---------------------------------------------------------------------------
 
 
-def test_port_3002_collision():
-    system = _make_system(runtime_port=3002)
+def test_reserved_workbench_port_collision():
+    system = _make_system(runtime_port=3010)
     errors = validator.validate_system(system)
-    assert any("3002" in e for e in errors), errors
+    assert any("3010" in e for e in errors), errors
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +319,7 @@ if __name__ == "__main__":
         test_runtime_executable_required,
         test_custom_provider_kind_is_rejected,
         test_duplicate_provider_ids,
-        test_port_3002_collision,
+        test_reserved_workbench_port_collision,
         test_duplicate_i2c_address,
         test_duplicate_i2c_address_mixed_literal_formats,
         test_same_address_different_bus_is_ok,

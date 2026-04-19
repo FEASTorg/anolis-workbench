@@ -1,6 +1,6 @@
 # Handoff Package v1
 
-Status: Active baseline for Phase 08.
+Status: Active baseline.
 
 ## Purpose
 

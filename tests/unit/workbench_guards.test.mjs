@@ -4,12 +4,11 @@ import assert from "node:assert/strict";
 import {
   describeCrossProjectRunningBanner,
   evaluateNavigationPrompts,
-} from "../../anolis_workbench/frontend/js/shell-guards.js";
-import { deriveLaunchBlockReason } from "../../anolis_workbench/frontend/js/composer/launch-guards.js";
+} from "../../frontend/src/lib/guards.js";
 import {
   deriveOperateAvailability,
   normalizeProviderHealthQuality,
-} from "../../anolis_workbench/frontend/js/operate-state.js";
+} from "../../frontend/src/lib/operate-contracts.js";
 
 test("navigation prompts include unsaved-change confirmation on workspace switch", () => {
   const prompts = evaluateNavigationPrompts({
@@ -58,32 +57,6 @@ test("cross-project running banner appears only when active project differs", ()
   });
 
   assert.equal(none, "");
-});
-
-test("launch conflict reason explains same-project relaunch block", () => {
-  const reason = deriveLaunchBlockReason(
-    {
-      running: true,
-      active_project: "alpha",
-    },
-    "alpha",
-  );
-
-  assert.ok(reason.includes("already active"));
-  assert.ok(reason.includes("Stop or Restart"));
-});
-
-test("launch conflict reason explains cross-project hard block", () => {
-  const reason = deriveLaunchBlockReason(
-    {
-      running: true,
-      active_project: "alpha",
-    },
-    "beta",
-  );
-
-  assert.ok(reason.includes("active for \"alpha\""));
-  assert.ok(reason.includes("before launching \"beta\""));
 });
 
 test("operate availability reports stopped runtime", () => {

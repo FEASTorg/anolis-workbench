@@ -4,7 +4,7 @@ Status: Locked.
 
 ## Purpose
 
-Freeze Phase 08 commissioning handoff package behavior so `.anpkg` export and
+Freeze commissioning handoff package behavior so `.anpkg` export and
 validation remain explicit and test-backed.
 
 ## Canonical Artifacts

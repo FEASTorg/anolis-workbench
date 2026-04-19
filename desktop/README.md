@@ -1,4 +1,4 @@
-# Desktop Wrapper (Phase 16)
+# Desktop Wrapper
 
 This directory contains the native Tauri wrapper for `anolis-workbench`.
 
@@ -38,7 +38,7 @@ cd desktop
 npm run tauri:build -- --target <rust-target-triple>
 ```
 
-Installer targets (phase baseline):
+Installer targets:
 
 1. Windows `.msi`
 2. Linux `.AppImage` and `.deb`

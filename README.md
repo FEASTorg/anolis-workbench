@@ -2,11 +2,11 @@
 
 Commissioning shell repository for Anolis.
 
-Phase 13 structure:
+Repository structure:
 
 1. `anolis_workbench/core` — pure domain library (projects, renderer, launcher, exporter, validators, paths)
 2. `anolis_workbench/server` — unified HTTP server (Compose + Commission + Operate `/v0/*` proxy)
-3. `anolis_workbench/cli` — CLI entry points (`anolis-workbench`, `anolis-package`)
+3. `anolis_workbench/cli` — CLI entry points (`anolis-workbench`, `anolis-package`, `anolis-validate`)
 
 ## Install
 
@@ -48,7 +48,7 @@ anolis-validate <package.anpkg>
 python contracts/validate-handoff-packages.py <package.anpkg>
 ```
 
-## Desktop Wrapper (Phase 16)
+## Desktop Wrapper
 
 A native Tauri wrapper now lives under `desktop/`.
 
@@ -73,7 +73,7 @@ Desktop workflows/docs:
 
 1. Runtime HTTP snapshot: `contracts/runtime-http.openapi.v0.yaml`
 2. Workbench API OpenAPI: `contracts/workbench-api.openapi.v1.yaml`
-3. Handoff/composer baselines: `docs/contracts/*.md`
+3. Handoff/control baselines: `docs/contracts/*.md`
 4. Runtime config schema: `anolis_workbench/schemas/runtime-config.schema.json`
 5. Machine profile schema: `anolis_workbench/schemas/machine-profile.schema.json`
 

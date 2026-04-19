@@ -1,4 +1,19 @@
-"""Cross-provider system-level validation for the Anolis System Composer."""
+"""Cross-provider system-level validation for Anolis Workbench."""
+
+from __future__ import annotations
+
+import os
+
+
+def _resolve_workbench_port(default: int = 3010) -> int:
+    """Resolve the workbench control port from environment with safe fallback."""
+    raw = os.getenv("ANOLIS_WORKBENCH_PORT")
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 def _parse_i2c_address(value: object) -> int | None:
@@ -54,8 +69,18 @@ def validate_system(system: dict) -> list[str]:
     if len(pids) != len(set(pids)):
         errors.append("Duplicate provider IDs in runtime config.")
 
-    if runtime.get("http_port") == 3002:
-        errors.append("Runtime HTTP port 3002 conflicts with the composer's own port.")
+    runtime_http_port = runtime.get("http_port")
+    if isinstance(runtime_http_port, str):
+        try:
+            runtime_http_port = int(runtime_http_port)
+        except ValueError:
+            runtime_http_port = None
+
+    reserved_workbench_port = _resolve_workbench_port()
+    if runtime_http_port == reserved_workbench_port:
+        errors.append(
+            f"Runtime HTTP port {reserved_workbench_port} conflicts with the workbench control server port."
+        )
 
     owned: dict = {}
     for pid, pcfg in providers.items():

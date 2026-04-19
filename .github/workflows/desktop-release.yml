@@ -302,7 +302,7 @@ jobs:
           body: |
             ## Desktop Artifacts
 
-            This release includes Phase 16 native desktop bundles and sidecar SBOMs.
+            This release includes native desktop bundles and sidecar SBOMs.
           files: |
             release-assets/*.msi
             release-assets/*.deb

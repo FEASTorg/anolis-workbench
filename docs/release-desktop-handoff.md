@@ -1,4 +1,4 @@
-# Desktop Release Handoff (Phase 16)
+# Desktop Release Handoff
 
 Audience: maintainers preparing native installer bundles for `anolis-workbench`.
 

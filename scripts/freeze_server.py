@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Freeze anolis-workbench server entrypoint into a sidecar executable.
 
-Phase 16 release path:
+Release path:
 
 1. Build SPA assets first (`frontend -> anolis_workbench/frontend/dist`).
 2. Freeze the Python server with PyInstaller onefile mode.

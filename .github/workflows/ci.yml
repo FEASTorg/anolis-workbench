@@ -136,6 +136,9 @@ jobs:
           npm run build
         working-directory: frontend
 
+      - name: Run JavaScript unit tests
+        run: node --test tests/unit/*.test.mjs
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

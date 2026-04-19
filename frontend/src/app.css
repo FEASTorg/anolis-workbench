@@ -1,4 +1,4 @@
-/* Migrated from anolis_workbench/frontend/css/style.css — do not edit the copy. */
+/* Workbench SPA styles. */
 /* Svelte controls #unsaved-indicator visibility via {#if dirty}, so display:none removed. */
 
 :root {

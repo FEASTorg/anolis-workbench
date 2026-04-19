@@ -3,7 +3,7 @@
 Audience: repository maintainer with admin access to GitHub repo settings and
 PyPI project settings.
 
-Purpose: complete the manual configuration required for Phase 15 release
+Purpose: complete the manual configuration required for Python package release
 automation (`.github/workflows/release.yml`).
 
 ---

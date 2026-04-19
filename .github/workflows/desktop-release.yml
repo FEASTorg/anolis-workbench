@@ -134,7 +134,7 @@ jobs:
           cp "dist/anolis-workbench${{ matrix.ext }}" "sidecar/anolis-workbench-sidecar-${{ matrix.target }}${{ matrix.ext }}"
 
       - name: Upload sidecar artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sidecar-${{ matrix.target }}
           path: sidecar/*
@@ -207,7 +207,7 @@ jobs:
 
       - name: Upload Windows bundle
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-bundle-${{ matrix.target }}
           path: desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
@@ -216,7 +216,7 @@ jobs:
 
       - name: Upload Linux bundles
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-bundle-${{ matrix.target }}
           path: |
@@ -246,7 +246,7 @@ jobs:
           syft dir:desktop/src-tauri -o cyclonedx-json=sbom-rust.cdx.json
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-sbom-cyclonedx
           path: |

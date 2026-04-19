@@ -115,7 +115,19 @@ export function deriveOperateAvailability(statusPayload, projectName) {
   return { available: true, reason: 'available', message: '', runningProject };
 }
 
-export function coerceParameterValue({ type, rawValue, min, max, allowedValues }) {
+/**
+ * @typedef {Object} CoerceParameterValueInput
+ * @property {string} type
+ * @property {unknown} rawValue
+ * @property {number | string | undefined} [min]
+ * @property {number | string | undefined} [max]
+ * @property {Array<string | number> | undefined} [allowedValues]
+ */
+
+/**
+ * @param {CoerceParameterValueInput} input
+ */
+export function coerceParameterValue({ type, rawValue, min, max, allowedValues } = {}) {
   const ntype = normalizeParameterType(type);
   if (!ntype) throw new Error('Unsupported parameter type');
   const src = String(rawValue ?? '').trim();

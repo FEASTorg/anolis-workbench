@@ -48,6 +48,15 @@ anolis-validate <package.anpkg>
 python contracts/validate-handoff-packages.py <package.anpkg>
 ```
 
+## Frontend Unit Tests
+
+```sh
+cd frontend
+npm run test:unit:coverage
+```
+
+The Vitest lane enforces coverage thresholds for `frontend/src/lib/*`.
+
 ## Desktop Wrapper
 
 A native Tauri wrapper now lives under `desktop/`.

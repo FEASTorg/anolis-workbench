@@ -38,6 +38,38 @@ export function buildTraceEvent(eventType, payload, nowMs = Date.now()) {
   return { type: eventType, timestamp_ms: timestampMs, details: describeEvent(eventType, payload), payload };
 }
 
+/**
+ * @typedef {Object} OperateConnectionStatus
+ * @property {'connected' | 'disconnected' | 'reconnecting' | 'stale'} state
+ * @property {number} attempts
+ * @property {number} [delay_ms]
+ * @property {number} [idle_ms]
+ */
+
+/**
+ * @typedef {Object} OperateEventStreamOptions
+ * @property {string} [url]
+ * @property {(eventType: string, payload: any) => void} [onEvent]
+ * @property {(status: OperateConnectionStatus) => void} [onConnectionStatus]
+ * @property {(error: unknown, context: string) => void} [onParseError]
+ * @property {string[]} [eventTypes]
+ * @property {number} [reconnectDelayMs]
+ * @property {number} [maxReconnectDelayMs]
+ * @property {number} [staleAfterMs]
+ * @property {number} [staleCheckIntervalMs]
+ */
+
+/**
+ * @typedef {Object} OperateEventStreamManager
+ * @property {() => void} connect
+ * @property {() => void} disconnect
+ * @property {() => string} getState
+ */
+
+/**
+ * @param {OperateEventStreamOptions} [options]
+ * @returns {OperateEventStreamManager}
+ */
 export function createOperateEventStreamManager({
   url = '/v0/events',
   onEvent = () => {},

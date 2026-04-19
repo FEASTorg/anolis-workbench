@@ -136,8 +136,9 @@ jobs:
           npm run build
         working-directory: frontend
 
-      - name: Run JavaScript unit tests
-        run: node --test tests/unit/*.test.mjs
+      - name: Run frontend unit tests (Vitest coverage)
+        run: npm run test:unit:coverage
+        working-directory: frontend
 
       - uses: actions/setup-python@v5
         with:

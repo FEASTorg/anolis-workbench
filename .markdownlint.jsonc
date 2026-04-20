@@ -1,0 +1,5 @@
+{
+  "default": true,
+  "MD013": false,
+  "MD024": { "siblings_only": true } // CHANGELOG.md reuses Added/Changed/Fixed headings across releases; only sibling duplicates should fail.
+}

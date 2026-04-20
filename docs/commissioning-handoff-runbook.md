@@ -50,13 +50,13 @@ python3 contracts/validate-handoff-packages.py \
 unzip <machine>.anpkg -d /opt/anolis/<machine>
 ```
 
-4. Configure deploy-time secret(s), minimally:
+1. Configure deploy-time secret(s), minimally:
 
 ```bash
 export INFLUXDB_TOKEN='<token-value>'
 ```
 
-5. Start runtime from extracted package root:
+1. Start runtime from extracted package root:
 
 ```bash
 cd /opt/anolis/<machine>

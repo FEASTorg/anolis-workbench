@@ -71,4 +71,3 @@ If `contract-drift` fails:
    - `uv run python contracts/validate-composer-control-openapi.py`
    - `uv run python contracts/validate-workbench-api-openapi.py`
 3. Include the snapshot refresh and validator pass in the same PR.
-

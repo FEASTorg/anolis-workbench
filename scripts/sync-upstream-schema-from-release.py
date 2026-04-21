@@ -67,7 +67,7 @@ def sha256_bytes(data: bytes) -> str:
 def fetch_url_bytes(url: str, timeout_seconds: int = 45) -> bytes:
     try:
         with urlopen(url, timeout=timeout_seconds) as response:
-            return response.read()
+            return bytes(response.read())
     except HTTPError as exc:
         raise RuntimeError(f"HTTP error while fetching {url}: {exc.code} {exc.reason}") from exc
     except URLError as exc:
@@ -94,9 +94,7 @@ def extract_tar_member(archive_bytes: bytes, member_path: str) -> bytes:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Sync a vendored upstream schema from an anolis release artifact"
-    )
+    parser = argparse.ArgumentParser(description="Sync a vendored upstream schema from an anolis release artifact")
     parser.add_argument(
         "--schema",
         required=True,
@@ -156,13 +154,9 @@ def main() -> int:
     manifest_asset_name = manifest.get("asset")
     manifest_sha = manifest.get("sha256")
     if manifest_asset_name != asset:
-        raise RuntimeError(
-            f"schema manifest asset mismatch: expected '{asset}', found '{manifest_asset_name}'"
-        )
+        raise RuntimeError(f"schema manifest asset mismatch: expected '{asset}', found '{manifest_asset_name}'")
     if manifest_sha != asset_sha:
-        raise RuntimeError(
-            f"schema manifest sha256 mismatch: expected '{asset_sha}', found '{manifest_sha}'"
-        )
+        raise RuntimeError(f"schema manifest sha256 mismatch: expected '{asset_sha}', found '{manifest_sha}'")
 
     schema_out.parent.mkdir(parents=True, exist_ok=True)
     lock_out.parent.mkdir(parents=True, exist_ok=True)

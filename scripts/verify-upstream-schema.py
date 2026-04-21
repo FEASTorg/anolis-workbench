@@ -57,7 +57,7 @@ def sha256_bytes(data: bytes) -> str:
 def fetch_url_bytes(url: str, timeout_seconds: int = 30) -> bytes:
     try:
         with urlopen(url, timeout=timeout_seconds) as response:
-            return response.read()
+            return bytes(response.read())
     except HTTPError as exc:
         raise RuntimeError(f"HTTP error while fetching {url}: {exc.code} {exc.reason}") from exc
     except URLError as exc:
@@ -134,6 +134,7 @@ def validate_release_mode(
     if not all(isinstance(v, str) and v.strip() for v in (repo, tag, asset, source_path)):
         print("ERROR: lock file missing required release fields (repo, tag, asset, source.path)", file=sys.stderr)
         return 1
+    assert isinstance(source_path, str)  # narrowed above
 
     local_schema_sha = sha256_bytes(schema_bytes)
     print("upstream schema verification summary (release-artifact mode)")
@@ -205,9 +206,7 @@ def validate_release_mode(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Verify vendored upstream schema against lock metadata."
-    )
+    parser = argparse.ArgumentParser(description="Verify vendored upstream schema against lock metadata.")
     parser.add_argument(
         "--schema",
         required=True,
@@ -262,9 +261,7 @@ def main() -> int:
         return 1
 
     if mode == "release-artifact":
-        return validate_release_mode(
-            schema_bytes, schema_path, lock_path, lock, offline=args.offline
-        )
+        return validate_release_mode(schema_bytes, schema_path, lock_path, lock, offline=args.offline)
 
     print(f"ERROR: unsupported lock mode '{mode}'", file=sys.stderr)
     return 1

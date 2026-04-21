@@ -55,6 +55,13 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Release request validated for $TAG"
 
+  metrics:
+    name: Collect metrics
+    needs: [validate]
+    uses: anolishq/.github/.github/workflows/metrics.yml@v1
+    with:
+      tag: ${{ needs.validate.outputs.tag }}
+
   ci:
     name: CI gate
     needs: validate
@@ -195,7 +202,7 @@ jobs:
 
   create-release:
     name: Tag and create GitHub Release
-    needs: [validate, smoke-test]
+    needs: [validate, smoke-test, metrics]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -251,3 +258,15 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
+
+      - name: Download metrics artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: metrics-${{ github.event.repository.name }}-${{ github.run_number }}
+          path: metrics-out/
+
+      - name: Upload metrics.json to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          files: metrics-out/metrics.json

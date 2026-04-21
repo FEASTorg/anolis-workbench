@@ -13,10 +13,12 @@ Then it:
 Supported schemas:
   --schema runtime-config    -> anolis-{VERSION}-runtime-config-schema.tar.gz
   --schema machine-profile   -> anolis-{VERSION}-machine-profile-schema.tar.gz
+  --schema runtime-http      -> anolis-{VERSION}-runtime-http-schema.tar.gz
 
 Usage:
   python scripts/sync-upstream-schema-from-release.py --schema runtime-config --tag v0.1.3
   python scripts/sync-upstream-schema-from-release.py --schema machine-profile --tag v0.1.3
+  python scripts/sync-upstream-schema-from-release.py --schema runtime-http --tag v0.1.3
 """
 
 from __future__ import annotations
@@ -47,6 +49,13 @@ _SCHEMA_CONFIGS: dict[str, dict[str, str]] = {
         "schema_member": "schemas/machine/machine-profile.schema.json",
         "vendored_path": "anolis_workbench/schemas/machine-profile.schema.json",
         "lock_path": "contracts/upstream/anolis/machine-profile.lock.json",
+    },
+    "runtime-http": {
+        "asset_template": "anolis-{version}-runtime-http-schema.tar.gz",
+        "manifest_asset": "runtime-http-schema-manifest.json",
+        "schema_member": "schemas/http/runtime-http.openapi.v0.yaml",
+        "vendored_path": "contracts/runtime-http.openapi.v0.yaml",
+        "lock_path": "contracts/upstream/anolis/runtime-http.lock.json",
     },
 }
 

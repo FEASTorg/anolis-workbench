@@ -10,11 +10,13 @@ Modes (from lock file):
 Supported schemas:
   --schema runtime-config
   --schema machine-profile
+  --schema runtime-http
 
 Usage:
   python scripts/verify-upstream-schema.py --schema runtime-config
   python scripts/verify-upstream-schema.py --schema machine-profile --offline
   python scripts/verify-upstream-schema.py --schema runtime-config --require-release-artifact
+  python scripts/verify-upstream-schema.py --schema runtime-http --require-release-artifact
 """
 
 from __future__ import annotations
@@ -40,6 +42,10 @@ _SCHEMA_CONFIGS: dict[str, dict[str, str]] = {
     "machine-profile": {
         "schema_path": "anolis_workbench/schemas/machine-profile.schema.json",
         "lock_path": "contracts/upstream/anolis/machine-profile.lock.json",
+    },
+    "runtime-http": {
+        "schema_path": "contracts/runtime-http.openapi.v0.yaml",
+        "lock_path": "contracts/upstream/anolis/runtime-http.lock.json",
     },
 }
 

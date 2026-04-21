@@ -189,16 +189,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # Fetch only the OpenAPI snapshot from upstream main.
-      # JSON schemas are verified via lock files (release-artifact mode) below.
-      - uses: actions/checkout@v6
-        with:
-          repository: anolishq/anolis
-          path: anolis-upstream
-          sparse-checkout: |
-            schemas/http/runtime-http.openapi.v0.yaml
-          sparse-checkout-cone-mode: false
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -209,8 +199,5 @@ jobs:
       - name: Verify machine-profile schema lock
         run: python3 scripts/verify-upstream-schema.py --schema machine-profile --require-release-artifact
 
-      - name: Compare OpenAPI contract snapshot
-        run: |
-          diff contracts/runtime-http.openapi.v0.yaml \
-               anolis-upstream/schemas/http/runtime-http.openapi.v0.yaml || \
-            (echo "runtime-http OpenAPI contract drift detected" && exit 1)
+      - name: Verify runtime-http OpenAPI lock
+        run: python3 scripts/verify-upstream-schema.py --schema runtime-http --require-release-artifact

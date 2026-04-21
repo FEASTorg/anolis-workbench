@@ -7,7 +7,7 @@ name = "anolis-workbench"
 version = "0.3.0"
 description = "Anolis commissioning workbench with handoff export tooling."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0.0,<7.0.0",

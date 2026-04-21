@@ -3,7 +3,7 @@ name = "anolis-workbench-desktop"
 version = "0.2.0"
 description = "Native desktop wrapper for Anolis Workbench"
 authors = ["anolishq"]
-license = "MIT"
+license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77"
 

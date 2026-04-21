@@ -13,9 +13,30 @@ Historical note:
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-21
+
+### Added
+
+- Upstream schema sync script (`scripts/sync-schemas.py`, W-3/W-4): fetches and updates all contract schemas from a pinned anolis release.
+- Release-artifact lock verify script (W-5): CI gate that confirms committed contracts match the pinned anolis release asset; replaces the earlier contract-drift schema-diff step.
+- Runtime-HTTP OpenAPI contract locked to anolis `v0.1.3` release artifact (W-6).
+
 ### Changed
 
-- Frontend formatting cleanup after the `0.2.0` baseline (`4cec7b8`).
+- Corrected schema `$id` URIs throughout from `schemas.anolishq.dev` to `anolishq.github.io`.
+- Synced `runtime-config`, `machine-profile`, and `runtime-http` contracts from anolis `v0.1.4`.
+- Removed redundant top-level `schemas/` copies; all contracts now live under `contracts/`.
+- Corrected contract-drift sparse-checkout paths for the post-`v0.1.2` schema layout.
+- Migrated all org references from `FEASTorg` to `anolishq`.
+- Frontend formatting cleanup post-`0.2.0` baseline.
+
+### CI
+
+- Add shared org docs-check workflow.
+- Add markdownlint config; tighten lint rules.
+- Pin org reusable workflow refs from `@main` to `@v1`.
+- Add metrics collection to release workflow; `metrics.json` uploaded as release asset on each release.
+- Bump `pytest` dependency via Dependabot.
 
 ## [0.2.0] - 2026-04-19
 

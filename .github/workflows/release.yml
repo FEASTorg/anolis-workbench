@@ -52,11 +52,7 @@ jobs:
             exit 1
           fi
 
-          MATRIX_VERSION=$(python3 -c "
-import pathlib, yaml
-m = yaml.safe_load(pathlib.Path('anolis_workbench/schemas/compatibility-matrix.yaml').read_text())
-print(m['workbench_version'])
-")
+          MATRIX_VERSION=$(python3 -c "import pathlib, yaml; m = yaml.safe_load(pathlib.Path('anolis_workbench/schemas/compatibility-matrix.yaml').read_text()); print(m['workbench_version'])")
           if [[ "$MATRIX_VERSION" != "$VERSION" ]]; then
             echo "compatibility-matrix.yaml workbench_version ($MATRIX_VERSION) does not match release version ($VERSION)"
             echo "Update workbench_version in anolis_workbench/schemas/compatibility-matrix.yaml before releasing."

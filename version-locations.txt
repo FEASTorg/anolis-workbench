@@ -2,4 +2,5 @@
 pyproject.toml:^version = "([0-9]+\.[0-9]+\.[0-9]+)"
 desktop/package.json:"version": "([0-9]+\.[0-9]+\.[0-9]+)"
 frontend/package.json:"version": "([0-9]+\.[0-9]+\.[0-9]+)"
-# Add more locations if found in future
+desktop/src-tauri/tauri.conf.json:"version": "([0-9]+\.[0-9]+\.[0-9]+)"
+desktop/src-tauri/Cargo.toml:^version = "([0-9]+\.[0-9]+\.[0-9]+)"

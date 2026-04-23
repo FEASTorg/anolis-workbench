@@ -39,11 +39,7 @@ def _load_compat_matrix(matrix_path: "pathlib.Path | None" = None) -> "dict[str,
         raw = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
         return raw if isinstance(raw, dict) else {}
     if _COMPAT_MATRIX_CACHE is None:
-        bundled = (
-            resources.files("anolis_workbench")
-            .joinpath("schemas")
-            .joinpath("compatibility-matrix.yaml")
-        )
+        bundled = resources.files("anolis_workbench").joinpath("schemas").joinpath("compatibility-matrix.yaml")
         try:
             _COMPAT_MATRIX_CACHE = yaml.safe_load(bundled.read_text(encoding="utf-8")) or {}
         except FileNotFoundError:

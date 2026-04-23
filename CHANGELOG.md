@@ -13,6 +13,25 @@ Historical note:
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-23
+
+### Changed
+
+- `anolis_workbench/schema/` merged into `anolis_workbench/schemas/`; `paths.py`
+  and `pyproject.toml` package glob updated accordingly.
+- Upstream schema locks synced to anolis `v0.1.5`.
+- `desktop/src-tauri/tauri.conf.json` and `desktop/src-tauri/Cargo.toml` version
+  strings aligned to `0.3.0` (were stale at `0.2.0`).
+
+### CI
+
+- Version-sync check wired: `version-locations.txt` now tracks `pyproject.toml`,
+  `desktop/package.json`, `frontend/package.json`,
+  `desktop/src-tauri/tauri.conf.json`, and `desktop/src-tauri/Cargo.toml`; CI
+  calls reusable `version-sync` workflow from `anolishq/.github`.
+- `frontend/package.json` version aligned to `0.3.0` (was stale scaffold value `0.0.1`).
+- `.anpkg` added to `.gitignore`.
+
 ## [0.3.0] - 2026-04-21
 
 ### Added

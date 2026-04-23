@@ -29,6 +29,26 @@ class ExportError(RuntimeError):
 _ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 _MACHINE_ID_RE = re.compile(r"[^a-z0-9-]+")
 _MACHINE_PROFILE_SCHEMA_CACHE: "dict[str, Any] | None" = None
+_COMPAT_MATRIX_CACHE: "dict[str, Any] | None" = None
+
+
+def _load_compat_matrix(matrix_path: "pathlib.Path | None" = None) -> "dict[str, Any]":
+    global _COMPAT_MATRIX_CACHE
+    if matrix_path is not None:
+        # Explicit path — used by tests; bypass cache.
+        raw = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    if _COMPAT_MATRIX_CACHE is None:
+        bundled = (
+            resources.files("anolis_workbench")
+            .joinpath("schemas")
+            .joinpath("compatibility-matrix.yaml")
+        )
+        try:
+            _COMPAT_MATRIX_CACHE = yaml.safe_load(bundled.read_text(encoding="utf-8")) or {}
+        except FileNotFoundError:
+            _COMPAT_MATRIX_CACHE = {}
+    return _COMPAT_MATRIX_CACHE
 
 
 def build_package(project_dir: pathlib.Path, out_path: pathlib.Path) -> None:
@@ -248,8 +268,15 @@ def _build_machine_profile(
 
     machine_id = _machine_id_from_name(project_name)
     providers = {provider_id: {"config": f"providers/{provider_id}.yaml"} for provider_id in provider_ids}
+    _matrix = _load_compat_matrix()
+    _matrix_providers = _matrix.get("providers", {})
     compatibility_providers = {
-        provider_id: {"strategy": "local-build", "version": "unspecified"} for provider_id in provider_ids
+        provider_id: (
+            {"strategy": "pinned-ref", "version": _matrix_providers[provider_id]["version"]}
+            if provider_id in _matrix_providers
+            else {"strategy": "local-build", "version": "unspecified"}
+        )
+        for provider_id in provider_ids
     }
 
     payload: dict[str, Any] = {
